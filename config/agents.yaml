@@ -1,0 +1,62 @@
+# agents.yaml configures the agents we use for the multi-agent turn-based RPG
+# There are 4 agents used for this platform:
+# - Narrator: Generates scene descriptions grounded in corpus. Prefer a LLM with large context window and superlative storytelling capabilities
+# - ScenePlanner: Plans next scene and determines NPC responses. Prefer an instruct LLM with good planning and orchestration capabilities
+# - NPCManager: Generates NPC dialogue with just-in-time persona extraction. Prefer an LLM with good persona / voice and tone capabilities
+# - RulesReferee: Validates player actions against corpus facts. Prefer an instruct LLM that excels at strict adherence to context / RAG libraries
+agents:
+  Narrator:
+    name: Narrator # used to identify who is speaking; narrator can have a custom name
+    llm:
+      provider: ollama # One of openai, gemini, ollama
+      model: nameOfModel
+      temperature: 0.7
+      max_tokens: 1000
+      api_key: null # Will be loaded from environment if not provided
+      base_url: http://localhost:11434/v1 # For Ollama or custom OpenAI-compatible endpoints
+    persona_template: null # name of persona template to use
+    retrieval_query_template: null # name of RAG query template to use
+    retrieval_top_k: 5
+    enabled: true
+
+  ScenePlanner:
+    name: ScenePlanner # used to identify the agent in the logs
+    llm:
+      provider: ollama # One of openai, gemini, ollama
+      model: nameOfModel
+      temperature: 0.7
+      max_tokens: 1000
+      api_key: null # Will be loaded from environment if not provided
+      base_url: http://localhost:11434/v1 # For Ollama or custom OpenAI-compatible endpoints
+    persona_template: null # name of persona template to use
+    retrieval_query_template: null # name of RAG query template to use
+    retrieval_top_k: 5
+    enabled: true
+
+  NPCManager:
+    name: NPCManager # used to identify who is responding in the logs, either Narrator (by name) or NPCManager
+    llm:
+      provider: ollama # One of openai, gemini, ollama
+      model: nameOfModel
+      temperature: 0.7
+      max_tokens: 1000
+      api_key: null # Will be loaded from environment if not provided
+      base_url: http://localhost:11434/v1 # For Ollama or custom OpenAI-compatible endpoints
+    persona_template: null # name of persona template to use, note the NPCManager uses a different persona depending on who's speaking
+    retrieval_query_template: null # name of RAG query template to use
+    retrieval_top_k: 5
+    enabled: true
+
+  RulesReferee:
+    name: RulesReferee # used to identify the Agent in the logs
+    llm:
+      provider: ollama # One of openai, gemini, ollama
+      model: nameOfModel
+      temperature: 0.7
+      max_tokens: 1000
+      api_key: null # Will be loaded from environment if not provided
+      base_url: http://localhost:11434/v1 # For Ollama or custom OpenAI-compatible endpoints
+    persona_template: null # name of persona template to use
+    retrieval_query_template: null # name of RAG query template to use
+    retrieval_top_k: 5
+    enabled: true

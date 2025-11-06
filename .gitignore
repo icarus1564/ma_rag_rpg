@@ -1,0 +1,7 @@
+.venv/
+.cursor/
+.pytest_cache/
+.vscode/
+__pycache__/
+*.pyc
+CLAUDE.md
