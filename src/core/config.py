@@ -1,7 +1,7 @@
 """Configuration management for Multi-Agent RAG RPG."""
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Literal
+from typing import Dict, List, Optional, Literal, Any
 from enum import Enum
 import yaml
 import os
@@ -92,12 +92,30 @@ class IngestionConfig:
 
 
 @dataclass
+class VectorDBConfig:
+    """Configuration for vector database."""
+    provider: str = "chroma"  # chroma, pinecone, etc.
+    chroma: Dict[str, Any] = field(default_factory=lambda: {
+        "persist_directory": "data/vector_db",
+        "collection_name": "corpus_embeddings",
+        "in_memory": False
+    })
+    pinecone: Dict[str, Any] = field(default_factory=lambda: {
+        "api_key": None,
+        "environment": "us-west1-gcp",
+        "index_name": "ma-rag-rpg-index",
+        "dimension": 384
+    })
+
+
+@dataclass
 class AppConfig:
     """Main application configuration."""
     agents: Dict[str, AgentConfig] = field(default_factory=dict)
     retrieval: RetrievalConfig = field(default_factory=RetrievalConfig)
     session: SessionConfig = field(default_factory=SessionConfig)
     ingestion: IngestionConfig = field(default_factory=IngestionConfig)
+    vector_db: VectorDBConfig = field(default_factory=VectorDBConfig)
     log_level: str = "INFO"
     api_host: str = "0.0.0.0"
     api_port: int = 8000
@@ -275,11 +293,29 @@ class AppConfig:
             chunk_metadata_path=ingestion_dict.get("chunk_metadata_path", "data/indices/chunks.json"),
         )
         
+        # Build vector DB config
+        vector_db_dict = config_dict.get("vector_db", {})
+        vector_db_config = VectorDBConfig(
+            provider=vector_db_dict.get("provider", "chroma"),
+            chroma=vector_db_dict.get("chroma", {
+                "persist_directory": "data/vector_db",
+                "collection_name": "corpus_embeddings",
+                "in_memory": False
+            }),
+            pinecone=vector_db_dict.get("pinecone", {
+                "api_key": os.getenv("PINECONE_API_KEY"),
+                "environment": "us-west1-gcp",
+                "index_name": "ma-rag-rpg-index",
+                "dimension": 384
+            })
+        )
+        
         return cls(
             agents=agents,
             retrieval=retrieval_config,
             session=session_config,
             ingestion=ingestion_config,
+            vector_db=vector_db_config,
             log_level=config_dict.get("log_level", "INFO"),
             api_host=config_dict.get("api_host", "0.0.0.0"),
             api_port=config_dict.get("api_port", 8000),

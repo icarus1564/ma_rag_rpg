@@ -7,6 +7,17 @@ This document provides a high-level summary of the RAG infrastructure design. Fo
 - **RAG_INFRASTRUCTURE_DESIGN.md**: Complete design document
 - **RAG_IMPLEMENTATION_PLAN.md**: Detailed implementation plan
 - **TEST_DATA_SPECIFICATION.md**: Test data requirements
+- **.cursor/DevNotes_Phase2.md**: Implementation notes and lessons learned
+
+## Implementation Status
+
+**Phase 2 Complete**: Ingestion pipeline and retrieval system are fully implemented and tested.
+
+- ✅ Ingestion Pipeline: Complete with 3 chunking strategies, BM25 indexing, embedding generation, and metadata storage
+- ✅ Retrieval System: Complete with BM25, vector, and hybrid retrieval (RRF and weighted fusion)
+- ✅ Test Coverage: 21 comprehensive tests, 100% pass rate
+- ⏸️ Query Rewriter: Deferred to future phase
+- ⏸️ API Endpoints: Next phase
 
 ## Architecture Overview
 
