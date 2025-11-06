@@ -109,7 +109,7 @@ class AppConfig:
         Args:
             config_path: Path to main config YAML file
             agents_yaml_path: Optional path to agents.yaml file. If provided, agents will be loaded from this file.
-                             If not provided and config_path doesn't contain agents, will try to load from config/agents.yaml
+                             If not provided and config_path doesn't contain agents, will try to load from config/agents.yaml.example
         """
         path = Path(config_path)
         if not path.exists():
@@ -126,7 +126,7 @@ class AppConfig:
         # Note: If agents are loaded from agents.yaml, they will be loaded directly in from_dict
         # For now, we'll handle it by loading agents.yaml content and merging into config_dict
         if agents_yaml_path or "agents" not in config_dict:
-            agents_path = agents_yaml_path or "config/agents.yaml"
+            agents_path = agents_yaml_path or "config/agents.yaml.example"
             try:
                 # Load agents.yaml as raw dict and merge into config_dict
                 agents_yaml_path_obj = Path(agents_path)
@@ -158,7 +158,7 @@ class AppConfig:
         return cls.from_dict(config_dict)
     
     @classmethod
-    def load_agents_from_yaml(cls, agents_yaml_path: str = "config/agents.yaml") -> Dict[str, AgentConfig]:
+    def load_agents_from_yaml(cls, agents_yaml_path: str = "config/agents.yaml.example") -> Dict[str, AgentConfig]:
         """Load agent configurations from agents.yaml file.
         
         Args:

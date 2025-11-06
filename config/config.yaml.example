@@ -1,0 +1,61 @@
+# Multi-Agent RAG RPG Configuration Example
+# Copy this file to config/config.yaml and update with your settings
+
+# Vector Database Configuration
+vector_db:
+  provider: chroma  # Options: chroma, pinecone
+  chroma:
+    persist_directory: data/vector_db
+    collection_name: corpus_embeddings
+    in_memory: false  # Set to true for testing (no persistence)
+  pinecone:
+    api_key: ${PINECONE_API_KEY}  # Set via environment variable
+    environment: us-west1-gcp
+    index_name: ma-rag-rpg-index
+    dimension: 384  # Must match embedding model dimension
+
+# Ingestion Configuration
+ingestion:
+  corpus_path: data/corpus.txt
+  chunk_size: 500  # Target chunk size in characters
+  chunk_overlap: 50  # Overlap between chunks
+  embedding_model: sentence-transformers/all-MiniLM-L6-v2  # Options: all-MiniLM-L6-v2 (384), all-mpnet-base-v2 (768)
+  bm25_index_path: data/indices/bm25_index.pkl
+  vector_index_path: data/indices/vector_index
+  chunk_metadata_path: data/indices/chunks.json
+
+# Retrieval Configuration
+retrieval:
+  bm25_weight: 0.5  # Weight for BM25 scores (0.0 to 1.0)
+  vector_weight: 0.5  # Weight for vector scores (0.0 to 1.0)
+  top_k: 10  # Number of results to return
+  fusion_strategy: rrf  # Options: rrf (Reciprocal Rank Fusion), weighted
+  rrf_k: 60  # RRF constant (higher = more weight on rank)
+  query_rewriter:
+    enabled: true
+    expansion: true  # Enable synonym expansion
+    decomposition: false  # Enable query decomposition (future)
+    llm_rewriting: false  # Enable LLM-based query rewriting (future)
+
+# Session Configuration
+session:
+  memory_window_size: 10  # Number of turns to keep in memory
+  max_tokens: 8000  # Maximum tokens in session memory
+  sliding_window: true  # Use sliding window for memory
+  session_ttl_seconds: 3600  # Session timeout (1 hour)
+
+# Agent Configuration (loaded from config/agents.yaml.example)
+# See config/agents.yaml.example for agent-specific settings
+
+# API Configuration
+api:
+  host: 0.0.0.0
+  port: 8000
+  log_level: INFO  # Options: DEBUG, INFO, WARNING, ERROR
+
+# Logging Configuration
+logging:
+  level: INFO  # Options: DEBUG, INFO, WARNING, ERROR
+  format: json  # Options: json, text
+  file: null  # Optional: path to log file (null = stdout)
+

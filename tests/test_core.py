@@ -245,13 +245,13 @@ agents:
         assert config.agents["narrator"].name == "Custom Narrator Name"
     
     def test_load_agents_from_yaml_actual_file(self):
-        """Test loading agents from actual config/agents.yaml file."""
+        """Test loading agents from actual config/agents.yaml.example file."""
         from pathlib import Path
         import os
         
         # Get project root (assuming tests are in tests/ directory)
         project_root = Path(__file__).parent.parent
-        agents_yaml_path = project_root / "config" / "agents.yaml"
+        agents_yaml_path = project_root / "config" / "agents.yaml.example"
         
         if agents_yaml_path.exists():
             agents = AppConfig.load_agents_from_yaml(str(agents_yaml_path))
