@@ -2,6 +2,8 @@
 
 A role-playing game engine where multiple AI agents role-play inside the world of a text corpus. All in-game facts, locations, items, and NPC knowledge are retrieved from the corpus using RAG (Retrieval-Augmented Generation), with a rules checker agent preventing hallucinations.
 
+NOTE: This is currently a non-functional prototype under construction. We will update this readme when we have a working prototype worthy of cloning / investigation.
+
 ## Architecture
 
 The system consists of four main layers:
