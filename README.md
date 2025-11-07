@@ -232,7 +232,15 @@ agents:
 ```
 ma_rag_rpg/
 ├── src/
-│   ├── agents/          # Agent implementations
+│   ├── agents/          # Agent implementations (Phase 3)
+│   │   ├── narrator.py
+│   │   ├── scene_planner.py
+│   │   ├── npc_manager.py
+│   │   ├── npc_persona_extractor.py
+│   │   ├── rules_referee.py
+│   │   ├── citation_utils.py
+│   │   ├── response_parsers.py
+│   │   └── prompt_templates.py
 │   ├── rag/             # Retrieval components
 │   │   ├── base_retriever.py
 │   │   ├── bm25_retriever.py
@@ -265,6 +273,9 @@ ma_rag_rpg/
 │   │   └── session_manager.py
 │   └── utils/           # Utilities
 ├── tests/               # Test suite
+│   ├── test_agents/     # Agent tests (39 tests)
+│   ├── test_core.py     # Core framework tests
+│   └── test_rag_pipeline.py  # RAG integration tests
 ├── config/              # Configuration files
 │   ├── config.yaml.example
 │   └── agents.yaml.example
@@ -284,8 +295,21 @@ ma_rag_rpg/
 ### Running Tests
 
 ```bash
+# Run all tests
 make test
+# Or:
+pytest tests/ -v
+
+# Run specific test suites
+pytest tests/test_core.py -v              # Core framework tests
+pytest tests/test_agents/ -v              # Agent tests only
+pytest tests/test_rag_pipeline.py -v      # RAG integration tests
+
+# Run with coverage
+pytest tests/ --cov=src --cov-report=html
 ```
+
+**Current Test Status:** ✅ 75 tests passing
 
 ### Running Linting
 
@@ -294,12 +318,46 @@ make test
 pylint src/ tests/
 ```
 
-### Adding a New Agent
+### Agent Implementation Pattern
 
+All agents follow this pattern (see existing agents for examples):
+
+```python
+from src.core.base_agent import BaseAgent, AgentContext, AgentOutput
+from src.core.config import AgentConfig
+from src.core.retrieval_manager import RetrievalManager
+
+class MyAgent(BaseAgent):
+    def __init__(self, config: AgentConfig, retrieval_manager: RetrievalManager):
+        super().__init__(config)
+        self.retrieval_manager = retrieval_manager
+
+    def process(self, context: AgentContext) -> AgentOutput:
+        # 1. Build retrieval query
+        query = self._build_query(context)
+
+        # 2. Retrieve relevant chunks
+        results = self.retrieval_manager.retrieve(
+            query=query,
+            top_k=self.config.retrieval_top_k,
+            agent_name=self.config.name
+        )
+
+        # 3. Build prompt and generate
+        prompt = self._build_prompt(context, results)
+        response = self.llm_client.generate(prompt, system_prompt=...)
+
+        # 4. Parse and return structured output
+        return self._parse_response(response, results)
+```
+
+Steps to add a new agent:
 1. Create a new class inheriting from `BaseAgent`
-2. Implement the `process()` method
-3. Add agent configuration to `config/agents.yaml.example`
-4. Register agent in orchestrator
+2. Implement the `process()` method following the pattern above
+3. Add prompt templates to `prompt_templates.py`
+4. Add agent configuration to `config/agents.yaml.example`
+5. Write comprehensive tests
+6. Register agent in orchestrator
 
 ### Adding a New LLM Provider
 
@@ -328,26 +386,77 @@ Set `OLLAMA_BASE_URL` to customize the endpoint.
 
 [Add contribution guidelines here]
 
-## Status
+## Implementation Status
 
-**Phase 1 Complete**: Core framework, session management, and agent infrastructure implemented and tested.
+### Phase 1: Foundation ✅ COMPLETE
+- ✅ Core framework (config, session, orchestrator, base agent)
+- ✅ LLM abstraction (OpenAI, Gemini, Ollama)
+- ✅ Session management with sliding window memory
+- ✅ Testing infrastructure
+- ✅ **Tests:** 36 core tests passing
 
-**Phase 2 In Progress**: RAG infrastructure, ingestion pipeline, and retrieval components.
-- Vector DB abstraction layer (ChromaDB, Pinecone support)
-- Ingestion pipeline (chunking, BM25 indexing, embedding generation)
-- Hybrid retrieval system (BM25 + vector with fusion strategies)
-- Query rewriting (expansion, normalization)
+### Phase 2: RAG Infrastructure ✅ COMPLETE
+- ✅ Vector DB abstraction layer (ChromaDB, Pinecone)
+- ✅ Ingestion pipeline (chunking, BM25, embeddings, metadata)
+- ✅ Hybrid retrieval (BM25 + vector with RRF/weighted fusion)
+- ✅ Query rewriting (expansion, normalization)
+- ✅ Retrieval manager with caching
+- ✅ API endpoints for ingestion and search
+- ✅ **Tests:** 21 RAG integration tests passing
 
-**Phase 3 Planned**: Agent implementations (Narrator, ScenePlanner, NPCManager, RulesReferee).
+### Phase 3: Agent Implementations ✅ COMPLETE
+- ✅ **Narrator Agent**: Scene descriptions grounded in corpus
+- ✅ **Scene Planner Agent**: Story flow and NPC response determination
+- ✅ **NPC Manager Agent**: In-character dialogue with just-in-time persona extraction
+- ✅ **Rules Referee Agent**: Action validation against corpus facts
+- ✅ **Shared Utilities**: Citation mapping, response parsing, prompt templates
+- ✅ **NPC Persona Extractor**: Dynamic character extraction from corpus
+- ✅ **Tests:** 39 agent tests passing (100% coverage)
+- ✅ **Documentation:** Complete design and implementation docs
 
-**Phase 4 Planned**: API endpoints and game loop integration.
+**Key Features Implemented:**
+- Corpus-grounded operation with citation tracking
+- Just-in-time NPC persona extraction and caching
+- Graceful error handling and fallbacks
+- Structured output with metadata
+- Integration-ready for game loop
 
-**Phase 5 Planned**: RAG metrics and evaluation framework.
+### Phase 4: Game Loop & API ⚠️ IN PROGRESS
+- ✅ Session manager (thread-safe, TTL-based)
+- ✅ RAG infrastructure endpoints
+- ⚠️ Health check endpoint (stubbed)
+- ❌ Game loop orchestration
+- ❌ Game endpoints (`/new_game`, `/turn`, `/state`)
+
+### Phase 5: Simple UI for Game, Statistics, Configuration and Status  ⏳ PLANNED
+- ❌ Three-Tab UI - Game, Status, Configuration
+- ❌ Game Tab - simple form to allow end-user to submit their prompt, see what turn they are on, view progress information for in-progress requests, and Agent responses
+- ❌ Status Tab - provides status of underlying components, including Agent connections to their LLMs, title of current corpus, and current state of the system (Processing Corpus, Processing Request, Waiting for User)
+- ❌ Configuration Tab - allows updating of corpus and changes to prompts and LLM configurations for Agents
+
+### Phase 6: Metrics & Evaluation ⏳ PLANNED
+- ❌ Test data generation
+- ❌ RAG evaluation metrics (Recall@K, MRR)
+- ❌ Parameterized Evaluation framework
+- ❌ Simple Evaluation of Personality Extraction and Model Response (with test corpus data, extraction prompt, and expected results)
+- ❌ Updates to UI Status Tab and Configuration Tab to support viewing metrics, evaluation results, and update evaluation parameters
+
+**Current Test Coverage:** 75 tests passing
+- Core framework: 36 tests
+- Agent implementations: 39 tests
+- RAG integration: 21 tests
 
 ## Documentation
 
-For detailed design documentation, see:
-- `docs/RAG_DESIGN_SUMMARY.md` - High-level RAG infrastructure overview
-- `docs/RAG_INFRASTRUCTURE_DESIGN.md` - Complete RAG infrastructure design
-- `docs/RAG_IMPLEMENTATION_PLAN.md` - Detailed implementation plan
-- `docs/TEST_DATA_SPECIFICATION.md` - Test data requirements
+### Design Documents
+- [docs/RAG_DESIGN_SUMMARY.md](docs/RAG_DESIGN_SUMMARY.md) - High-level RAG infrastructure overview
+- [docs/RAG_INFRASTRUCTURE_DESIGN.md](docs/RAG_INFRASTRUCTURE_DESIGN.md) - Complete RAG infrastructure design
+- [docs/RAG_IMPLEMENTATION_PLAN.md](docs/RAG_IMPLEMENTATION_PLAN.md) - Detailed implementation plan
+- [docs/TEST_DATA_SPECIFICATION.md](docs/TEST_DATA_SPECIFICATION.md) - Test data requirements
+
+### Agent Implementation (Phase 3)
+- [docs/AGENT_IMPLEMENTATION_DESIGN.md](docs/AGENT_IMPLEMENTATION_DESIGN.md) - Complete agent design document
+- [docs/PHASE_3_IMPLEMENTATION_SUMMARY.md](docs/PHASE_3_IMPLEMENTATION_SUMMARY.md) - Implementation summary and verification
+
+### Implementation Plan
+- [.cursor/plans/multi-agent-rag-rpg-framework.plan.md](.cursor/plans/multi-agent-rag-rpg-framework.plan.md) - Complete project plan with status updates
