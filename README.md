@@ -147,7 +147,7 @@ make test-coverage   # Generates htmlcov/index.html
 pytest tests/ -v
 ```
 
-**Expected Result:** ✅ 75 tests passing
+**Expected Result:** ✅ 136 tests passing (zero warnings)
 
 ### Running the API Server
 
@@ -162,14 +162,22 @@ The API will be available at `http://localhost:8000`
 ### API Endpoints
 
 **Game Endpoints:**
-- `POST /new_game` - Create a new game session
-- `POST /turn` - Process a player command
-- `GET /state/{session_id}` - Get current game state
+- `POST /api/new_game` - Create a new game session
+- `POST /api/turn` - Process a player command through the game loop
+- `GET /api/state/{session_id}` - Get current game state
+- `GET /api/progress/{session_id}` - Get real-time turn progress
+- `DELETE /api/session/{session_id}` - Delete a game session
+
+**Status/Monitoring Endpoints:**
+- `GET /api/status/system` - Overall system status and metrics
+- `GET /api/status/corpus` - Corpus and indexing status
+- `GET /api/status/agents` - All agents health and statistics
+- `GET /api/status/retrieval` - Retrieval system status
+- `GET /health` - Quick health check with component status
 
 **RAG Infrastructure Endpoints:**
 - `POST /ingest` - Trigger corpus ingestion and index creation
 - `POST /search` - Search corpus using hybrid retrieval
-- `GET /health` - Health check for indices and vector DB
 
 ### Using Docker
 
@@ -473,12 +481,16 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
 - Structured output with metadata
 - Integration-ready for game loop
 
-### Phase 4: Game Loop & API ⚠️ IN PROGRESS
-- ✅ Session manager (thread-safe, TTL-based)
-- ✅ RAG infrastructure endpoints
-- ⚠️ Health check endpoint (stubbed)
-- ❌ Game loop orchestration
-- ❌ Game endpoints (`/new_game`, `/turn`, `/state`)
+### Phase 4: Game Loop & API ✅ COMPLETE
+- ✅ **GameLoop Class**: Orchestrated turn execution with comprehensive logging
+- ✅ **Progress Tracking**: Real-time progress updates via callbacks
+- ✅ **Game Endpoints**: `/api/new_game`, `/api/turn`, `/api/state/{session_id}`, `/api/progress/{session_id}`, `/api/session/{session_id}`
+- ✅ **Status Endpoints**: `/api/status/system`, `/api/status/corpus`, `/api/status/agents`, `/api/status/retrieval`
+- ✅ **Health Check**: Enhanced `/health` endpoint with real component status
+- ✅ **API Schemas**: Complete Pydantic models for all requests/responses
+- ✅ **Session Manager**: Thread-safe, TTL-based concurrent session handling
+- ✅ **FastAPI Lifespan**: Modern context manager pattern (no deprecated code)
+- ✅ **Tests**: 40 new tests (100% passing, zero warnings)
 
 ### Phase 5: Simple UI for Game, Statistics, Configuration and Status  ⏳ PLANNED
 - ❌ Three-Tab UI - Game, Status, Configuration
@@ -493,10 +505,13 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
 - ❌ Simple Evaluation of Personality Extraction and Model Response (with test corpus data, extraction prompt, and expected results)
 - ❌ Updates to UI Status Tab and Configuration Tab to support viewing metrics, evaluation results, and update evaluation parameters
 
-**Current Test Coverage:** 75 tests passing
+**Current Test Coverage:** 136 tests passing
 - Core framework: 36 tests
 - Agent implementations: 39 tests
 - RAG integration: 21 tests
+- GameLoop: 14 tests
+- Game API: 13 tests
+- Status API: 13 tests
 
 ## Documentation
 
@@ -509,6 +524,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
 ### Agent Implementation (Phase 3)
 - [docs/AGENT_IMPLEMENTATION_DESIGN.md](docs/AGENT_IMPLEMENTATION_DESIGN.md) - Complete agent design document
 - [docs/PHASE_3_IMPLEMENTATION_SUMMARY.md](docs/PHASE_3_IMPLEMENTATION_SUMMARY.md) - Implementation summary and verification
+
+### Game Loop & API (Phase 4)
+- [.cursor/DevNotes_Phase4.md](.cursor/DevNotes_Phase4.md) - Complete Phase 4 implementation summary
+- [.cursor/FastAPI_Lifespan_Refactoring.md](.cursor/FastAPI_Lifespan_Refactoring.md) - FastAPI modernization guide
 
 ### Implementation Plan
 - [.cursor/plans/multi-agent-rag-rpg-framework.plan.md](.cursor/plans/multi-agent-rag-rpg-framework.plan.md) - Complete project plan with status updates
