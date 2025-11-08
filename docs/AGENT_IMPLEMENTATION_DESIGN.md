@@ -323,22 +323,11 @@ Determine the narrative flow by deciding what happens next and which NPC (if any
 ### Retrieval Strategy
 
 **Query Construction:**
-```python
-def _build_query(self, context: AgentContext) -> str:
-    """Build query for scene planning."""
-    player_command = context.player_command
-    current_scene = context.session_state.get("current_scene", "")
 
-    # Focus on character interactions and dialogue triggers
-    query = f"character NPC dialogue {player_command} {current_scene}"
-
-    # Add context about active NPCs
-    active_npcs = context.session_state.get("active_npcs", [])
-    if active_npcs:
-        query += " " + " ".join(active_npcs)
-
-    return query
-```
+Steps:
+1. ensure consistency with context by pulling in current scene
+2. Focus on character interactions and dialogue triggers
+3. Add context about active NPCs
 
 **Retrieval Parameters:**
 - `top_k`: 5-8 chunks

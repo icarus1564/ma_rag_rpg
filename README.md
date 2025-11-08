@@ -57,12 +57,17 @@ The system consists of four main layers:
 - **Concurrent**: Supports multiple simultaneous game sessions
 - **Docker-Ready**: Full containerization support with persistent data volumes
 
+## Quick Start
+
+**New users:** See [QUICKSTART.md](QUICKSTART.md) for a step-by-step guide to get running in minutes.
+
 ## Installation
 
 ### Prerequisites
 
 - Python 3.11+
-- Virtual environment (recommended)
+- Git
+- At least one LLM provider (OpenAI, Gemini, or Ollama)
 
 ### Setup
 
@@ -74,24 +79,33 @@ The system consists of four main layers:
 
 2. **Create and activate virtual environment**:
    ```bash
-   python3 -m venv .venv
-   source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-   ```
-
-3. **Install dependencies**:
-   ```bash
+   # Make will create the venv automatically
    make setup
-   # Or manually:
-   pip install -r requirements.txt
+
+   # Activate the virtual environment
+   source .venv/bin/activate  # On Linux/Mac
+   .venv\Scripts\activate     # On Windows
    ```
 
-4. **Set up environment variables** (optional):
+3. **Set up environment variables**:
    ```bash
    cp .env.example .env
-   # Edit .env with your API keys:
+   # Edit .env with your API keys (choose ONE provider):
    # OPENAI_API_KEY=your_key_here
    # GEMINI_API_KEY=your_key_here
-   # OLLAMA_BASE_URL=http://localhost:11434/v1  # Optional, defaults to this
+   # OLLAMA_BASE_URL=http://localhost:11434/v1  # For local Ollama
+   ```
+
+4. **Configure agents**:
+   ```bash
+   cp config/config.yaml.example config/config.yaml
+   cp config/agents.yaml.example config/agents.yaml
+   # Edit config/agents.yaml to set your LLM provider (ollama, openai, or gemini)
+   ```
+
+5. **Download NLTK data** (for query rewriting):
+   ```bash
+   python -c "import nltk; nltk.download('wordnet'); nltk.download('omw-1.4')"
    ```
 
 ## Usage
@@ -118,10 +132,22 @@ curl -X POST http://localhost:8000/ingest \
 ### Running Tests
 
 ```bash
+# Run all tests (recommended after setup)
 make test
-# Or:
+
+# Run specific test suites
+make test-core       # Core framework tests (36 tests)
+make test-agents     # Agent tests (39 tests)
+make test-rag        # RAG integration tests (21 tests)
+
+# Run with coverage report
+make test-coverage   # Generates htmlcov/index.html
+
+# Manual pytest
 pytest tests/ -v
 ```
+
+**Expected Result:** ✅ 75 tests passing
 
 ### Running the API Server
 
@@ -311,11 +337,27 @@ pytest tests/ --cov=src --cov-report=html
 
 **Current Test Status:** ✅ 75 tests passing
 
-### Running Linting
+### Code Quality
 
+**Linting** (Optional - install separately):
 ```bash
-# Check for linting errors
-pylint src/ tests/
+# Install linting tools
+pip install pylint black ruff mypy
+
+# Format code
+black src/ tests/
+
+# Lint code
+ruff check src/ tests/
+
+# Type check
+mypy src/
+```
+
+**Pre-commit Checks** (before committing):
+```bash
+make test           # Ensure all tests pass
+make clean          # Clean up artifacts
 ```
 
 ### Agent Implementation Pattern
@@ -378,13 +420,23 @@ Set `GEMINI_API_KEY` environment variable.
 Runs locally by default at `http://localhost:11434/v1`. No API key required.
 Set `OLLAMA_BASE_URL` to customize the endpoint.
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
+- Code standards and style
+- Testing requirements
+- Pull request process
+- Development workflow
+
+## Additional Documentation
+
+- [QUICKSTART.md](QUICKSTART.md) - Quick start guide for new users
+- [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution guidelines
+- [DEPENDENCIES.md](DEPENDENCIES.md) - Complete dependency documentation
+
 ## License
 
 [Add your license here]
-
-## Contributing
-
-[Add contribution guidelines here]
 
 ## Implementation Status
 
