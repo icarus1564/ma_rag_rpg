@@ -6,3 +6,7 @@ __pycache__/
 *.pyc
 CLAUDE.md
 data/indices
+agents.yaml
+!agents.yaml.example
+config.yaml
+!config.yaml.example

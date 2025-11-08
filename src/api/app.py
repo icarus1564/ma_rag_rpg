@@ -8,6 +8,8 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
 
 from .endpoints import ingestion, search, game, status
 from src.core.config import AppConfig
@@ -188,11 +190,30 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files
+static_path = Path(__file__).parent / "static"
+if static_path.exists():
+    app.mount("/ui", StaticFiles(directory=str(static_path), html=True), name="ui")
+    logger.info(f"Static files mounted at /ui from {static_path}")
+else:
+    logger.warning(f"Static files directory not found at {static_path}")
+
 # Include routers
 app.include_router(ingestion.router)
 app.include_router(search.router)
 app.include_router(game.router)
 app.include_router(status.router)
+
+
+@app.get("/")
+async def root():
+    """
+    Root endpoint - redirects to the UI.
+
+    Returns:
+        Redirect response to /ui/index.html
+    """
+    return RedirectResponse(url="/ui/index.html")
 
 
 @app.get("/health")
