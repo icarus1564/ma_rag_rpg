@@ -525,9 +525,6 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
 - [docs/AGENT_IMPLEMENTATION_DESIGN.md](docs/AGENT_IMPLEMENTATION_DESIGN.md) - Complete agent design document
 - [docs/PHASE_3_IMPLEMENTATION_SUMMARY.md](docs/PHASE_3_IMPLEMENTATION_SUMMARY.md) - Implementation summary and verification
 
-### Game Loop & API (Phase 4)
-- [.cursor/DevNotes_Phase4.md](.cursor/DevNotes_Phase4.md) - Complete Phase 4 implementation summary
-- [.cursor/FastAPI_Lifespan_Refactoring.md](.cursor/FastAPI_Lifespan_Refactoring.md) - FastAPI modernization guide
+### Game Loop and API (Phase 4)
+- [docs/PHASE_4_IMPLEMENTATION_SUMMARY.md](docs/PHASE_4_IMPLEMENTATION_SUMMARY.md) - Implementation summary, verification, and lessons learned
 
-### Implementation Plan
-- [.cursor/plans/multi-agent-rag-rpg-framework.plan.md](.cursor/plans/multi-agent-rag-rpg-framework.plan.md) - Complete project plan with status updates
