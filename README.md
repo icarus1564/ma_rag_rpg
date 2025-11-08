@@ -492,11 +492,43 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
 - ✅ **FastAPI Lifespan**: Modern context manager pattern (no deprecated code)
 - ✅ **Tests**: 40 new tests (100% passing, zero warnings)
 
-### Phase 5: Simple UI for Game, Statistics, Configuration and Status  ⏳ PLANNED
-- ❌ Three-Tab UI - Game, Status, Configuration
-- ❌ Game Tab - simple form to allow end-user to submit their prompt, see what turn they are on, view progress information for in-progress requests, and Agent responses
-- ❌ Status Tab - provides status of underlying components, including Agent connections to their LLMs, title of current corpus, and current state of the system (Processing Corpus, Processing Request, Waiting for User)
-- ❌ Configuration Tab - allows updating of corpus and changes to prompts and LLM configurations for Agents
+### Phase 5: Simple UI for Game, Statistics, Configuration, Status, and Feedback  ✅ DESIGN APPROVED
+- ✅ **Design Document:** [docs/PHASE_5_UI_DESIGN.md](docs/PHASE_5_UI_DESIGN.md)
+- ✅ **Technology Stack:** Plain HTML/CSS/JavaScript with Bootstrap 5.3, Font Awesome, CodeMirror
+- ❌ **Four-Tab UI Implementation:**
+  - **Game Tab:** Interactive gameplay with real-time progress tracking
+    - Session management (new game, load session, localStorage persistence)
+    - Turn submission with progress bar showing current agent execution
+    - Agent output display with citations, metadata, and turn history
+    - Per-turn feedback integration
+  - **Status Tab:** Comprehensive system monitoring dashboard
+    - System overview (uptime, active sessions, total turns, memory/CPU)
+    - Corpus status (chunks, BM25/Vector indices, embedding model)
+    - Agent status table (LLM connections, call statistics, response times)
+    - Retrieval system status (hybrid retrieval, cache hit rate)
+    - Auto-refresh with real-time updates
+  - **Configuration Tab:** Dynamic settings management without restart
+    - Agent configuration (LLM provider, model, temperature, prompts with syntax highlighting)
+    - Corpus management (upload, ingest with progress, re-index)
+    - Retrieval settings (BM25/Vector weights, fusion strategy, query rewriting)
+    - System settings (session management, logging, API configuration)
+    - Test connections, import/export configuration
+  - **Feedback Tab:** User feedback collection and review system
+    - Feedback submission form (type, rating, agent, session/turn context)
+    - Feedback list with search/filter (type, agent, date, rating, status)
+    - BM25-indexed storage for full-text search
+    - Statistics and analytics (avg rating, common issues by agent)
+    - Export capabilities (JSON/CSV)
+- ❌ **New API Endpoints:**
+  - Configuration: `/api/config/*` (agents, retrieval, system, export/import)
+  - Corpus: `/api/corpus/*` (upload, ingest, progress, current info)
+  - Feedback: `/api/feedback/*` (submit, list, search, stats, export)
+  - Logging: `/api/logs/` (view recent logs)
+- ❌ **Backend Components:**
+  - `ConfigManager` class for dynamic configuration updates
+  - `FeedbackStore` class for BM25-indexed feedback storage
+  - Background task processing for corpus ingestion
+  - Static file serving via FastAPI
 
 ### Phase 6: Metrics & Evaluation ⏳ PLANNED
 - ❌ Test data generation
