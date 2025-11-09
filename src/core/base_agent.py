@@ -198,3 +198,32 @@ class BaseAgent(ABC):
         """Extract citation references from retrieval results."""
         return [f"[{i+1}]" for i in range(len(retrieval_results))]
 
+    def test_connection(self) -> tuple[bool, Optional[str]]:
+        """
+        Test connection to the LLM provider.
+
+        Returns:
+            Tuple of (success, error_message)
+        """
+        if not self.config.enabled:
+            return True, None
+
+        if self.llm_client is None:
+            return False, "LLM client not initialized"
+
+        try:
+            # Send a minimal test prompt
+            test_prompt = "Hello"
+            result = self.llm_client.generate(test_prompt)
+
+            if result:
+                self.logger.info(f"Connection test successful for {self.config.name}")
+                return True, None
+            else:
+                return False, "No response from LLM"
+
+        except Exception as e:
+            error_msg = f"Connection test failed: {str(e)}"
+            self.logger.error(error_msg, exc_info=True)
+            return False, error_msg
+

@@ -8,6 +8,11 @@ import os
 from pathlib import Path
 
 
+class ConfigurationError(Exception):
+    """Raised when configuration is invalid or missing."""
+    pass
+
+
 class LLMProvider(str, Enum):
     """Supported LLM providers."""
     OPENAI = "openai"
@@ -107,6 +112,14 @@ class VectorDBConfig:
         "dimension": 384
     })
 
+    def get_collection_name(self) -> str:
+        """Get the collection name based on provider."""
+        if self.provider == "chroma":
+            return self.chroma.get("collection_name", "corpus_embeddings")
+        elif self.provider == "pinecone":
+            return self.pinecone.get("index_name", "ma-rag-rpg-index")
+        return "unknown"
+
 
 @dataclass
 class AppConfig:
@@ -123,56 +136,75 @@ class AppConfig:
     @classmethod
     def from_yaml(cls, config_path: str, agents_yaml_path: Optional[str] = None) -> "AppConfig":
         """Load configuration from YAML file.
-        
+
         Args:
             config_path: Path to main config YAML file
-            agents_yaml_path: Optional path to agents.yaml file. If provided, agents will be loaded from this file.
-                             If not provided and config_path doesn't contain agents, will try to load from config/agents.yaml.example
+            agents_yaml_path: Optional path to agents.yaml file
+
+        Raises:
+            ConfigurationError: If required configuration files are missing
         """
+        # Check for main config file
         path = Path(config_path)
         if not path.exists():
             # Try relative to project root if absolute path doesn't exist
             project_root = Path(__file__).parent.parent.parent
             path = project_root / config_path
             if not path.exists():
-                raise FileNotFoundError(f"Config file not found: {config_path}")
-        
+                raise ConfigurationError(
+                    f"Configuration file not found: {config_path}\n\n"
+                    f"Please create config/config.yaml with the following required properties:\n"
+                    f"  - ingestion: corpus_path, chunk_size, chunk_overlap, embedding_model\n"
+                    f"  - retrieval: bm25_weight, vector_weight, fusion_strategy\n"
+                    f"  - session: memory_window_size, max_tokens\n"
+                    f"  - vector_db: provider, collection settings\n\n"
+                    f"See config/config.yaml.example for a template."
+                )
+
         with open(path, "r") as f:
             config_dict = yaml.safe_load(f)
-        
-        # Load agents from agents.yaml if specified or if not in main config
-        # Note: If agents are loaded from agents.yaml, they will be loaded directly in from_dict
-        # For now, we'll handle it by loading agents.yaml content and merging into config_dict
-        if agents_yaml_path or "agents" not in config_dict:
-            agents_path = agents_yaml_path or "config/agents.yaml.example"
-            try:
-                # Load agents.yaml as raw dict and merge into config_dict
-                agents_yaml_path_obj = Path(agents_path)
-                if not agents_yaml_path_obj.exists():
-                    project_root = Path(__file__).parent.parent.parent
-                    agents_yaml_path_obj = project_root / agents_path
-                
-                if agents_yaml_path_obj.exists():
-                    with open(agents_yaml_path_obj, "r") as f:
-                        agents_yaml_dict = yaml.safe_load(f)
-                    
-                    # Handle both structures: agents.yaml might have "agents:" root or "config:" root
-                    if "config" in agents_yaml_dict and "agents" not in agents_yaml_dict:
-                        agents_dict = agents_yaml_dict.get("config", {})
-                    elif "agents" in agents_yaml_dict:
-                        agents_dict = agents_yaml_dict["agents"]
-                    else:
-                        agents_dict = agents_yaml_dict
-                    
-                    # Merge agents into config_dict
-                    if "agents" not in config_dict:
-                        config_dict["agents"] = {}
-                    config_dict["agents"].update(agents_dict)
-            except FileNotFoundError:
-                # If agents.yaml doesn't exist, continue with existing agents or empty dict
-                if "agents" not in config_dict:
-                    config_dict["agents"] = {}
-        
+
+        # Check for agents config file
+        if agents_yaml_path:
+            agents_path_obj = Path(agents_yaml_path)
+        else:
+            agents_path_obj = Path("config/agents.yaml")
+
+        if not agents_path_obj.exists():
+            # Try relative to project root
+            project_root = Path(__file__).parent.parent.parent
+            agents_path_obj = project_root / agents_path_obj
+
+        if not agents_path_obj.exists():
+            raise ConfigurationError(
+                f"Agents configuration file not found: {agents_yaml_path or 'config/agents.yaml'}\n\n"
+                f"Please create config/agents.yaml with agent configurations.\n"
+                f"Each agent must have the following properties:\n"
+                f"  - name: Agent name\n"
+                f"  - llm: provider, model, temperature, max_tokens, base_url (if applicable)\n"
+                f"  - retrieval_top_k: Number of chunks to retrieve\n"
+                f"  - enabled: true/false\n\n"
+                f"Required agents: narrator, scene_planner, npc_manager, rules_referee\n\n"
+                f"See config/agents.yaml.example for a template."
+            )
+
+        # Load agents from agents.yaml
+        with open(agents_path_obj, "r") as f:
+            agents_yaml_dict = yaml.safe_load(f)
+
+        # Handle both structures: agents.yaml might have "agents:" root or "config:" root
+        if "config" in agents_yaml_dict and "agents" not in agents_yaml_dict:
+            agents_dict = agents_yaml_dict.get("config", {})
+        elif "agents" in agents_yaml_dict:
+            agents_dict = agents_yaml_dict["agents"]
+        else:
+            agents_dict = agents_yaml_dict
+
+        # Merge agents into config_dict
+        if "agents" not in config_dict:
+            config_dict["agents"] = {}
+        config_dict["agents"].update(agents_dict)
+
         return cls.from_dict(config_dict)
     
     @classmethod

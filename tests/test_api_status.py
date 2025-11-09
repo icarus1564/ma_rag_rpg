@@ -84,7 +84,7 @@ def mock_app_config():
 
     # Ingestion config
     config.ingestion = Mock()
-    config.ingestion.corpus_path = "data/test_corpus.txt"
+    config.ingestion.corpus_path = "data/test_data/test_corpus2.txt"
     config.ingestion.embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
 
     # Vector DB config
@@ -138,8 +138,9 @@ class TestStatusEndpoints:
         assert response.status_code == 200
         data = response.json()
 
-        assert data["corpus_name"] == "test_corpus.txt"
-        assert data["corpus_path"] == "data/test_corpus.txt"
+        assert data["corpus_name"] == "test_corpus2.txt"
+        assert data["corpus_path"] == "data/test_data/test_corpus2.txt"
+        assert data["loaded_corpora"] is None
         assert data["total_chunks"] == 3  # From mock BM25 retriever
         assert data["bm25_status"] == "connected"
         assert data["vector_db_status"] == "connected"

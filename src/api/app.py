@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 
 from .endpoints import ingestion, search, game, status
-from src.core.config import AppConfig
+from src.core.config import AppConfig, ConfigurationError
 from src.core.retrieval_manager import RetrievalManager
 from src.core.session_manager import SessionManager
 from src.core.orchestrator import GameOrchestrator
@@ -56,17 +56,16 @@ async def lifespan(app: FastAPI):
         config_path = os.getenv("CONFIG_PATH", "config/config.yaml")
         agents_config_path = os.getenv("AGENTS_CONFIG_PATH", "config/agents.yaml")
 
-        if not os.path.exists(config_path):
-            logger.warning(f"Config file not found at {config_path}, using defaults")
-            _app_config = AppConfig()
-        else:
+        try:
             _app_config = AppConfig.from_yaml(config_path, agents_config_path)
-
-        logger.info("Configuration loaded successfully")
+            logger.info("Configuration loaded successfully")
+        except ConfigurationError as e:
+            logger.error(f"Configuration error: {e}")
+            raise RuntimeError(f"Configuration error: {e}") from e
 
         # Initialize retrieval manager
         logger.info("Initializing retrieval manager")
-        _retrieval_manager = RetrievalManager(_app_config)
+        _retrieval_manager = RetrievalManager.from_config(_app_config)
 
         # Try to load indices if they exist
         try:

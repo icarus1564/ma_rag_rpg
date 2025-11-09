@@ -50,6 +50,10 @@ class CorpusStatusResponse(BaseModel):
     """Corpus and indexing status."""
     corpus_name: Optional[str] = Field(None, description="Corpus name or title")
     corpus_path: Optional[str] = Field(None, description="Path to corpus file")
+    loaded_corpora: Optional[List[str]] = Field(
+        None,
+        description="Paths to corpora detected from loaded indices"
+    )
     total_chunks: int = Field(..., description="Total number of chunks indexed")
     bm25_status: ConnectionStatus = Field(
         ...,

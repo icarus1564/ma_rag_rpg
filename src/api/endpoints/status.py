@@ -3,6 +3,7 @@
 import time
 import os
 from typing import Dict, Any, List, Optional
+from collections.abc import Iterable
 from fastapi import APIRouter, HTTPException
 from datetime import datetime
 
@@ -148,6 +149,8 @@ async def get_corpus_status():
         embedding_model = None
         embedding_dimension = None
 
+        loaded_corpora: Optional[List[str]] = None
+
         if _app_config:
             corpus_path = _app_config.ingestion.corpus_path
             corpus_name = os.path.basename(corpus_path) if corpus_path else None
@@ -165,8 +168,50 @@ async def get_corpus_status():
         bm25_status = ConnectionStatus.UNKNOWN
         if _retrieval_manager and hasattr(_retrieval_manager, 'hybrid_retriever'):
             if _retrieval_manager.hybrid_retriever and _retrieval_manager.hybrid_retriever.bm25_retriever:
-                if _retrieval_manager.hybrid_retriever.bm25_retriever.is_loaded():
+                bm25_retriever = _retrieval_manager.hybrid_retriever.bm25_retriever
+                if bm25_retriever.is_loaded():
                     bm25_status = ConnectionStatus.CONNECTED
+
+                    metadata = getattr(bm25_retriever, "metadata", None)
+                    if metadata:
+                        if isinstance(metadata, dict):
+                            metadata_items: Iterable[Any] = metadata.values()
+                        elif isinstance(metadata, Iterable) and not isinstance(metadata, (str, bytes)):
+                            metadata_items = metadata
+                        else:
+                            metadata_items = []
+
+                        def _extract_source(meta: Any) -> Optional[str]:
+                            if hasattr(meta, "source"):
+                                source_value = getattr(meta, "source")
+                                return str(source_value) if source_value else None
+                            if isinstance(meta, dict):
+                                source_value = meta.get("source")
+                                return str(source_value) if source_value else None
+                            return None
+
+                        sources = (
+                            {
+                                source
+                                for source in (
+                                    _extract_source(meta)
+                                    for meta in metadata_items
+                                )
+                                if source
+                            }
+                            if metadata_items
+                            else set()
+                        )
+
+                        if sources:
+                            loaded_corpora = sorted(sources)
+                            if len(sources) == 1:
+                                corpus_path = loaded_corpora[0]
+                                corpus_name = os.path.basename(corpus_path)
+                            else:
+                                corpus_name = ", ".join(
+                                    sorted(os.path.basename(path) for path in sources)
+                                )
                 else:
                     bm25_status = ConnectionStatus.DISCONNECTED
 
@@ -207,6 +252,7 @@ async def get_corpus_status():
         return CorpusStatusResponse(
             corpus_name=corpus_name,
             corpus_path=corpus_path,
+            loaded_corpora=loaded_corpora,
             total_chunks=total_chunks,
             bm25_status=bm25_status,
             vector_db_status=vector_db_status,
@@ -360,3 +406,124 @@ async def get_retrieval_status():
     except Exception as e:
         logger.error("Failed to get retrieval status", error=str(e), exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get retrieval status: {str(e)}")
+
+
+@router.get("/config")
+async def get_config():
+    """
+    Get current application configuration.
+
+    Returns:
+        Dictionary with full application configuration
+    """
+    logger.debug("Getting application configuration")
+
+    try:
+        if _app_config is None:
+            raise HTTPException(status_code=500, detail="Configuration not loaded")
+
+        # Build config response
+        config_response = {
+            "agents": {},
+            "retrieval": {
+                "bm25_weight": _app_config.retrieval.bm25_weight,
+                "vector_weight": _app_config.retrieval.vector_weight,
+                "chunk_size": _app_config.retrieval.chunk_size,
+                "chunk_overlap": _app_config.retrieval.chunk_overlap,
+                "top_k": _app_config.retrieval.top_k,
+                "fusion_strategy": _app_config.retrieval.fusion_strategy,
+                "rrf_k": _app_config.retrieval.rrf_k,
+                "query_rewriter_enabled": _app_config.retrieval.query_rewriter_enabled,
+            },
+            "session": {
+                "memory_window_size": _app_config.session.memory_window_size,
+                "max_tokens": _app_config.session.max_tokens,
+                "sliding_window": _app_config.session.sliding_window,
+                "session_ttl_seconds": _app_config.session.session_ttl_seconds,
+            },
+            "ingestion": {
+                "corpus_path": _app_config.ingestion.corpus_path,
+                "chunk_size": _app_config.ingestion.chunk_size,
+                "chunk_overlap": _app_config.ingestion.chunk_overlap,
+                "embedding_model": _app_config.ingestion.embedding_model,
+                "bm25_index_path": _app_config.ingestion.bm25_index_path,
+                "vector_index_path": _app_config.ingestion.vector_index_path,
+                "chunk_metadata_path": _app_config.ingestion.chunk_metadata_path,
+            },
+            "vector_db": {
+                "provider": _app_config.vector_db.provider,
+                "collection_name": _app_config.vector_db.get_collection_name(),
+            },
+            "api": {
+                "log_level": _app_config.log_level,
+                "host": _app_config.api_host,
+                "port": _app_config.api_port,
+            },
+        }
+
+        # Add agent configs
+        for agent_name, agent_config in _app_config.agents.items():
+            config_response["agents"][agent_name] = {
+                "name": agent_config.name,
+                "enabled": agent_config.enabled,
+                "llm": {
+                    "provider": agent_config.llm.provider.value,
+                    "model": agent_config.llm.model,
+                    "temperature": agent_config.llm.temperature,
+                    "max_tokens": agent_config.llm.max_tokens,
+                    "base_url": agent_config.llm.base_url,
+                },
+                "retrieval_top_k": agent_config.retrieval_top_k,
+            }
+
+        return config_response
+
+    except Exception as e:
+        logger.error("Failed to get configuration", error=str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to get configuration: {str(e)}")
+
+
+@router.post("/agents/{agent_name}/test")
+async def test_agent_connection(agent_name: str):
+    """
+    Test connection to a specific agent's LLM provider.
+
+    Args:
+        agent_name: Name of the agent to test
+
+    Returns:
+        Dictionary with connection test results
+    """
+    logger.info(f"Testing connection for agent: {agent_name}")
+
+    try:
+        if _orchestrator is None:
+            raise HTTPException(status_code=500, detail="Orchestrator not initialized")
+
+        # Get the agent
+        agent = _orchestrator.agents.get(agent_name)
+        if not agent:
+            raise HTTPException(status_code=404, detail=f"Agent not found: {agent_name}")
+
+        # Test connection
+        success, error_message = agent.test_connection()
+
+        # Record the test result
+        import time
+        start_time = time.time()
+        duration = time.time() - start_time
+
+        record_agent_call(agent_name, success, duration, error_message)
+
+        return {
+            "agent_name": agent_name,
+            "success": success,
+            "error": error_message,
+            "timestamp": datetime.now().isoformat(),
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to test agent connection: {agent_name}", error=str(e), exc_info=True)
+        raise HTTPException(status_code=500, detail=f"Failed to test connection: {str(e)}")

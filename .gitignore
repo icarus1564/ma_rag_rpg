@@ -3,9 +3,11 @@
 .pytest_cache/
 .vscode/
 __pycache__/
+logs/
 *.pyc
 CLAUDE.md
 data/indices
+data/vector_db
 agents.yaml
 !agents.yaml.example
 config.yaml

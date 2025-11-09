@@ -118,30 +118,63 @@ function setupConfigEventListeners() {
  */
 async function loadConfigOverview() {
     try {
-        // Load agents status
-        const agentsStatus = await StatusAPI.getAgentsStatus();
+        // Load full configuration
+        const config = await StatusAPI.getConfig();
         const agentsList = document.getElementById('agentsList');
+        const retrievalSettings = document.getElementById('retrievalSettings');
 
-        if (agentsStatus.agents && agentsStatus.agents.length > 0) {
-            agentsList.innerHTML = agentsStatus.agents.map(agent => `
-                <li>${escapeHtml(agent.name)} - ${escapeHtml(agent.llm_provider)} / ${escapeHtml(agent.llm_model)}</li>
+        // Display agents
+        if (config.agents && Object.keys(config.agents).length > 0) {
+            agentsList.innerHTML = Object.entries(config.agents).map(([key, agent]) => `
+                <li>
+                    <strong>${escapeHtml(agent.name)}</strong>
+                    ${agent.enabled ? '<span class="badge bg-success">Enabled</span>' : '<span class="badge bg-secondary">Disabled</span>'}
+                    <br>
+                    <small class="text-muted">
+                        ${escapeHtml(agent.llm.provider)} / ${escapeHtml(agent.llm.model)}
+                        ${agent.llm.base_url ? `<br>Base URL: ${escapeHtml(agent.llm.base_url)}` : ''}
+                    </small>
+                </li>
             `).join('');
         } else {
             agentsList.innerHTML = '<li class="text-muted">No agents configured</li>';
         }
 
-        // Load retrieval settings
-        const retrievalStatus = await StatusAPI.getRetrievalStatus();
-        const retrievalSettings = document.getElementById('retrievalSettings');
-
+        // Display retrieval settings
         retrievalSettings.innerHTML = `
-            <p class="mb-1">Hybrid Retrieval: <strong>${retrievalStatus.hybrid_enabled ? 'Enabled' : 'Disabled'}</strong></p>
-            <p class="mb-1">Fusion Strategy: <strong>${retrievalStatus.fusion_strategy ? retrievalStatus.fusion_strategy.toUpperCase() : 'N/A'}</strong></p>
-            <p class="mb-0">Query Rewriting: <strong>${retrievalStatus.query_rewriting ? 'Enabled' : 'Disabled'}</strong></p>
+            <p class="mb-1"><strong>Fusion Strategy:</strong> ${escapeHtml(config.retrieval.fusion_strategy.toUpperCase())}</p>
+            <p class="mb-1"><strong>Top-K Results:</strong> ${config.retrieval.top_k}</p>
+            <p class="mb-1"><strong>BM25 Weight:</strong> ${config.retrieval.bm25_weight}</p>
+            <p class="mb-1"><strong>Vector Weight:</strong> ${config.retrieval.vector_weight}</p>
+            <p class="mb-1"><strong>Query Rewriter:</strong> ${config.retrieval.query_rewriter_enabled ? 'Enabled' : 'Disabled'}</p>
+            <p class="mb-0"><strong>Chunk Size:</strong> ${config.retrieval.chunk_size} (overlap: ${config.retrieval.chunk_overlap})</p>
         `;
+
+        // Add session config section
+        const sessionInfo = `
+            <div class="col-md-6 mt-3">
+                <h6>Session Settings</h6>
+                <p class="mb-1"><strong>Memory Window:</strong> ${config.session.memory_window_size} turns</p>
+                <p class="mb-1"><strong>Max Tokens:</strong> ${config.session.max_tokens}</p>
+                <p class="mb-1"><strong>Sliding Window:</strong> ${config.session.sliding_window ? 'Enabled' : 'Disabled'}</p>
+                <p class="mb-0"><strong>TTL:</strong> ${config.session.session_ttl_seconds}s</p>
+            </div>
+            <div class="col-md-6 mt-3">
+                <h6>Vector Database</h6>
+                <p class="mb-1"><strong>Provider:</strong> ${escapeHtml(config.vector_db.provider)}</p>
+                <p class="mb-0"><strong>Collection:</strong> ${escapeHtml(config.vector_db.collection_name)}</p>
+            </div>
+        `;
+
+        // Insert session info after retrieval settings
+        retrievalSettings.parentElement.parentElement.innerHTML += sessionInfo;
 
     } catch (error) {
         console.error('Failed to load config overview:', error);
+        const agentsList = document.getElementById('agentsList');
+        const retrievalSettings = document.getElementById('retrievalSettings');
+        if (agentsList) agentsList.innerHTML = '<li class="text-danger">Error loading configuration</li>';
+        if (retrievalSettings) retrievalSettings.innerHTML = '<p class="text-danger">Error loading configuration</p>';
     }
 }
 

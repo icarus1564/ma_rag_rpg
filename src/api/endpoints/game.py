@@ -16,6 +16,7 @@ from ..schemas.game_schemas import (
 from src.core.session_manager import SessionManager
 from src.core.game_loop import GameLoop, TurnProgress
 from src.utils.logging import get_logger
+from . import status
 
 logger = get_logger(__name__)
 
@@ -128,6 +129,9 @@ async def process_turn(request: TurnRequest):
             success=result.success,
             error=result.error,
         )
+
+        # Increment turn counter
+        status.increment_turn_count()
 
         logger.info(
             "Turn processed successfully",

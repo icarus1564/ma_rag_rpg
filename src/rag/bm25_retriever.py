@@ -15,12 +15,13 @@ logger = get_logger(__name__)
 class BM25Retriever(BaseRetriever):
     """BM25-based retriever."""
     
-    def __init__(self, index_path: str, metadata_path: str):
+    def __init__(self, index_path: Optional[str] = None, metadata_path: Optional[str] = None, lazy_load: bool = False):
         """Initialize BM25 retriever.
-        
+
         Args:
             index_path: Path to BM25 index file
             metadata_path: Path to chunk metadata file
+            lazy_load: If True, don't load indices immediately (default: False)
         """
         self.index_path = index_path
         self.metadata_path = metadata_path
@@ -29,9 +30,11 @@ class BM25Retriever(BaseRetriever):
         self.metadata = {}
         self.chunks = []
         self.index_to_chunk_id = {}
-        self._load_index()
-        self._load_metadata()
-        self._load_chunks()
+
+        if not lazy_load and index_path and metadata_path:
+            self._load_index()
+            self._load_metadata()
+            self._load_chunks()
     
     def _load_index(self) -> None:
         """Load BM25 index from disk."""
@@ -62,6 +65,27 @@ class BM25Retriever(BaseRetriever):
         # Create mapping from chunk_index to chunk_id
         self.index_to_chunk_id = {meta.chunk_index: meta.chunk_id for meta in sorted_metadata}
         logger.info("Chunk texts loaded", count=len(self.chunks))
+
+    def load_index(self, index_path: str, metadata_path: str) -> None:
+        """Load BM25 index and metadata.
+
+        Args:
+            index_path: Path to BM25 index file
+            metadata_path: Path to chunk metadata file
+        """
+        self.index_path = index_path
+        self.metadata_path = metadata_path
+        self._load_index()
+        self._load_metadata()
+        self._load_chunks()
+
+    def is_loaded(self) -> bool:
+        """Check if index is loaded.
+
+        Returns:
+            True if index is loaded, False otherwise
+        """
+        return self.index is not None and len(self.chunks) > 0
     
     def retrieve(
         self,

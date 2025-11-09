@@ -155,6 +155,14 @@ const StatusAPI = {
     async getHealth() {
         return await apiRequest('/health');
     },
+
+    /**
+     * Get full configuration
+     * @returns {Promise<object>} Full configuration
+     */
+    async getConfig() {
+        return await apiRequest('/api/status/config');
+    },
 };
 
 // ==================== CONFIGURATION ENDPOINTS ====================

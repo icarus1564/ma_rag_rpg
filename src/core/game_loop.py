@@ -14,6 +14,12 @@ from ..utils.logging import get_logger
 
 logger = get_logger(__name__)
 
+# Import status recording function
+try:
+    from ..api.endpoints import status as status_module
+except ImportError:
+    status_module = None
+
 
 class TurnPhase(str, Enum):
     """Phases of a game turn for progress tracking."""
@@ -381,6 +387,10 @@ class GameLoop:
 
                 progress.agents_completed.append(agent_name)
 
+                # Record successful agent call
+                if status_module:
+                    status_module.record_agent_call(agent_name, True, agent_duration)
+
                 self.logger.debug(
                     "Agent completed",
                     agent_name=agent_name,
@@ -389,8 +399,13 @@ class GameLoop:
                 )
 
             except Exception as e:
+                agent_duration = time.time() - agent_start if 'agent_start' in locals() else 0.0
                 error_msg = str(e)
                 progress.agents_failed.append(agent_name)
+
+                # Record failed agent call
+                if status_module:
+                    status_module.record_agent_call(agent_name, False, agent_duration, error_msg)
 
                 self.logger.error(
                     "Agent failed",
