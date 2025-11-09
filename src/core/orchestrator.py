@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Optional
 from .base_agent import BaseAgent, AgentContext, AgentOutput, RetrievalResult
 from .session import GameSession
 from ..utils.logging import get_logger
+from ..utils.debug_logging import debug_log_method
 
 logger = get_logger(__name__)
 
@@ -21,6 +22,7 @@ class GameOrchestrator:
         self.agents = agents
         self.logger = get_logger(__name__)
     
+    @debug_log_method
     def execute_turn(
         self,
         session: GameSession,
@@ -30,13 +32,13 @@ class GameOrchestrator:
     ) -> Dict[str, Any]:
         """
         Execute a single game turn with all agents.
-        
+
         Args:
             session: Current game session
             player_command: Player's command/action
             retrieval_results: Retrieved chunks from RAG system
             initial_context: Optional initial context for first turn
-            
+
         Returns:
             Dictionary with outputs from all agents
         """
@@ -112,6 +114,7 @@ class GameOrchestrator:
             "outputs": outputs,
         }
     
+    @debug_log_method
     def _update_session_state(
         self,
         session: GameSession,

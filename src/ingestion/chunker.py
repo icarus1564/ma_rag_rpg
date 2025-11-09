@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from typing import List, Literal, Dict, Any
 import re
 from ..utils.logging import get_logger
+from ..utils.debug_logging import debug_log_method
 
 logger = get_logger(__name__)
 
@@ -20,7 +21,8 @@ class Chunk:
 
 class Chunker:
     """Text chunking with multiple strategies."""
-    
+
+    @debug_log_method
     def chunk(
         self,
         text: str,

@@ -2,6 +2,7 @@
 
 from typing import List, Dict, Any, Optional
 from ...utils.logging import get_logger
+from ...utils.debug_logging import debug_log_method
 from .base import BaseVectorDB, VectorDocument, VectorSearchResult
 
 logger = get_logger(__name__)
@@ -97,6 +98,7 @@ class PineconeVectorDB(BaseVectorDB):
         # ]
         # self.index.upsert(vectors=vectors)
     
+    @debug_log_method
     def search(
         self,
         collection_name: str,
@@ -105,13 +107,13 @@ class PineconeVectorDB(BaseVectorDB):
         filters: Optional[Dict[str, Any]] = None
     ) -> List[VectorSearchResult]:
         """Search for similar documents.
-        
+
         Args:
             collection_name: Name of the collection to search
             query_embedding: Query vector embedding
             top_k: Number of results to return
             filters: Optional metadata filters
-            
+
         Returns:
             List of search results sorted by relevance
         """

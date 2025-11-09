@@ -5,6 +5,7 @@ import pickle
 from pathlib import Path
 from rank_bm25 import BM25Okapi
 from ..utils.logging import get_logger
+from ..utils.debug_logging import debug_log_method
 
 logger = get_logger(__name__)
 
@@ -16,12 +17,13 @@ class BM25Indexer:
         """Initialize BM25 indexer."""
         self.index = None
     
+    @debug_log_method
     def build_index(self, chunks: List[str]) -> BM25Okapi:
         """Build BM25 index from chunks.
-        
+
         Args:
             chunks: List of chunk texts
-            
+
         Returns:
             BM25Okapi index object
         """
@@ -39,9 +41,10 @@ class BM25Indexer:
         
         return self.index
     
+    @debug_log_method
     def save_index(self, index: BM25Okapi, path: str) -> None:
         """Save index to disk.
-        
+
         Args:
             index: BM25 index to save
             path: File path to save to

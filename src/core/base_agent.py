@@ -7,6 +7,7 @@ from .config import AgentConfig, LLMConfig, LLMProvider
 import openai
 import google.generativeai as genai
 from ..utils.logging import get_logger
+from ..utils.debug_logging import debug_log_method
 
 logger = get_logger(__name__)
 
@@ -59,6 +60,7 @@ class LLMClient:
         self.config = config
         self._initialize_client()
     
+    @debug_log_method
     def _initialize_client(self):
         """Initialize the appropriate LLM client."""
         self.client = None
@@ -84,6 +86,7 @@ class LLMClient:
         if self.client is None:
             raise ValueError(f"Unsupported LLM provider: {self.config.provider}")
     
+    @debug_log_method
     def generate(self, prompt: str, system_prompt: Optional[str] = None) -> str:
         """Generate text using the configured LLM."""
         try:
@@ -169,6 +172,7 @@ class BaseAgent(ABC):
         """
         pass
     
+    @debug_log_method
     def validate_config(self) -> bool:
         """Validate agent configuration."""
         if not self.config.enabled:
@@ -198,6 +202,7 @@ class BaseAgent(ABC):
         """Extract citation references from retrieval results."""
         return [f"[{i+1}]" for i in range(len(retrieval_results))]
 
+    @debug_log_method
     def test_connection(self) -> tuple[bool, Optional[str]]:
         """
         Test connection to the LLM provider.

@@ -9,6 +9,7 @@ from src.core.config import (
     LLMProvider,
     SessionConfig,
     RetrievalConfig,
+    LoggingConfig,
 )
 from src.core.session import GameSession, Turn
 from src.core.session_manager import SessionManager
@@ -16,6 +17,7 @@ from src.core.orchestrator import GameOrchestrator
 from src.core.retrieval_manager import RetrievalManager
 from src.core.base_agent import BaseAgent, AgentContext, AgentOutput, RetrievalResult
 from src.rag.base_retriever import BaseRetriever
+from src.utils.logging import setup_logging, get_logger
 
 
 class MockAgent(BaseAgent):
@@ -263,6 +265,127 @@ agents:
                 assert agents[agent_name].name == agent_name or agents[agent_name].name is not None
                 assert agents[agent_name].llm.provider == LLMProvider.OLLAMA
                 assert agents[agent_name].enabled is True
+    
+    def test_logging_config_defaults(self):
+        """Test LoggingConfig default values."""
+        config = LoggingConfig()
+        assert config.level == "INFO"
+        assert config.format == "json"
+        assert config.file is None
+    
+    def test_logging_config_custom_values(self):
+        """Test LoggingConfig with custom values."""
+        config = LoggingConfig(
+            level="DEBUG",
+            format="text",
+            file="logs/test.log"
+        )
+        assert config.level == "DEBUG"
+        assert config.format == "text"
+        assert config.file == "logs/test.log"
+    
+    def test_app_config_with_logging(self):
+        """Test AppConfig includes logging configuration."""
+        config_dict = {
+            "logging": {
+                "level": "DEBUG",
+                "format": "text",
+                "file": "logs/test.log"
+            }
+        }
+        config = AppConfig.from_dict(config_dict)
+        assert config.logging.level == "DEBUG"
+        assert config.logging.format == "text"
+        assert config.logging.file == "logs/test.log"
+    
+    def test_app_config_logging_defaults(self):
+        """Test AppConfig logging defaults when not specified."""
+        config_dict = {}
+        config = AppConfig.from_dict(config_dict)
+        assert config.logging.level == "INFO"
+        assert config.logging.format == "json"
+        assert config.logging.file is None
+    
+    def test_app_config_logging_legacy_log_level(self):
+        """Test AppConfig supports legacy log_level at root level."""
+        config_dict = {
+            "log_level": "WARNING"
+        }
+        config = AppConfig.from_dict(config_dict)
+        # Should use legacy log_level if logging section not present
+        assert config.logging.level == "WARNING"
+        assert config.log_level == "WARNING"  # Also preserved for backward compatibility
+    
+    def test_app_config_logging_section_overrides_legacy(self):
+        """Test logging section overrides legacy log_level."""
+        config_dict = {
+            "log_level": "WARNING",
+            "logging": {
+                "level": "DEBUG"
+            }
+        }
+        config = AppConfig.from_dict(config_dict)
+        # logging.level should take precedence
+        assert config.logging.level == "DEBUG"
+
+
+class TestLogging:
+    """Test logging configuration and setup."""
+    
+    def test_setup_logging_defaults(self):
+        """Test setup_logging with default parameters."""
+        setup_logging()
+        logger = get_logger("test")
+        # Should not raise an exception
+        logger.info("Test message")
+    
+    def test_setup_logging_custom_level(self):
+        """Test setup_logging with custom log level."""
+        setup_logging(log_level="DEBUG")
+        logger = get_logger("test")
+        # Should not raise an exception
+        logger.debug("Debug message")
+    
+    def test_setup_logging_text_format(self):
+        """Test setup_logging with text format."""
+        setup_logging(log_format="text")
+        logger = get_logger("test")
+        # Should not raise an exception
+        logger.info("Test message")
+    
+    def test_setup_logging_json_format(self):
+        """Test setup_logging with JSON format."""
+        setup_logging(log_format="json")
+        logger = get_logger("test")
+        # Should not raise an exception
+        logger.info("Test message")
+    
+    def test_setup_logging_file_output(self, tmp_path):
+        """Test setup_logging with file output."""
+        log_file = tmp_path / "test.log"
+        setup_logging(log_file=str(log_file))
+        logger = get_logger("test")
+        logger.info("Test message")
+        
+        # Verify log file was created
+        assert log_file.exists()
+        # Verify log directory was created if needed
+        assert log_file.parent.exists()
+    
+    def test_setup_logging_reconfiguration(self):
+        """Test that setup_logging can be called multiple times."""
+        setup_logging(log_level="INFO")
+        logger1 = get_logger("test1")
+        logger1.info("First message")
+        
+        # Reconfigure with different settings
+        setup_logging(log_level="DEBUG", log_format="text")
+        logger2 = get_logger("test2")
+        logger2.debug("Second message")
+        
+        # Should not raise an exception
+        assert logger1 is not None
+        assert logger2 is not None
 
 
 class TestSession:

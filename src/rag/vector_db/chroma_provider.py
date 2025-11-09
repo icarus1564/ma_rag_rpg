@@ -4,6 +4,7 @@ from typing import List, Dict, Any, Optional
 import chromadb
 from chromadb.config import Settings
 from ...utils.logging import get_logger
+from ...utils.debug_logging import debug_log_method
 from .base import BaseVectorDB, VectorDocument, VectorSearchResult
 
 logger = get_logger(__name__)
@@ -49,7 +50,8 @@ class ChromaVectorDB(BaseVectorDB):
         self.in_memory = config.get("in_memory", self.in_memory)
         if self.client is None:
             self._initialize_client()
-    
+
+    @debug_log_method
     def create_collection(
         self,
         collection_name: str,
@@ -77,7 +79,8 @@ class ChromaVectorDB(BaseVectorDB):
             metadata=collection_metadata
         )
         logger.info("Collection created", collection=collection_name, dimension=embedding_dimension)
-    
+
+    @debug_log_method
     def add_documents(
         self,
         collection_name: str,
@@ -107,7 +110,8 @@ class ChromaVectorDB(BaseVectorDB):
             metadatas=metadatas
         )
         logger.info("Documents added", collection=collection_name, count=len(documents))
-    
+
+    @debug_log_method
     def search(
         self,
         collection_name: str,

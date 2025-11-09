@@ -8,6 +8,7 @@ from ..core.retrieval_manager import RetrievalManager
 from .prompt_templates import PromptTemplateManager
 from .response_parsers import ResponseParser
 from .citation_utils import CitationMapper
+from ..utils.debug_logging import debug_log_method
 
 
 class ScenePlannerAgent(BaseAgent):
@@ -23,6 +24,7 @@ class ScenePlannerAgent(BaseAgent):
         super().__init__(config)
         self.retrieval_manager = retrieval_manager
 
+    @debug_log_method
     def process(self, context: AgentContext) -> AgentOutput:
         """Process context and determine scene flow.
 
@@ -69,6 +71,7 @@ class ScenePlannerAgent(BaseAgent):
             # Fallback to narrator
             return self._fallback_to_narrator(str(e))
 
+    @debug_log_method
     def _build_query(self, context: AgentContext) -> str:
         """Build retrieval query for scene planning.
 
@@ -122,6 +125,7 @@ class ScenePlannerAgent(BaseAgent):
 
         return npcs[:3]  # Limit to 3
 
+    @debug_log_method
     def _build_prompt(self, context: AgentContext, results: List[RetrievalResult]) -> str:
         """Build LLM prompt for scene planning.
 
@@ -191,6 +195,7 @@ class ScenePlannerAgent(BaseAgent):
         """
         return PromptTemplateManager.get_template("scene_planner_system")
 
+    @debug_log_method
     def _parse_response(
         self,
         response: str,

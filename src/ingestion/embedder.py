@@ -3,6 +3,7 @@
 from typing import List, Optional
 from sentence_transformers import SentenceTransformer
 from ..utils.logging import get_logger
+from ..utils.debug_logging import debug_log_method
 
 logger = get_logger(__name__)
 
@@ -35,18 +36,19 @@ class Embedder:
             logger.error("Failed to initialize embedder", error=str(e), model=self.model_name)
             raise
     
+    @debug_log_method
     def embed(self, texts: List[str]) -> List[List[float]]:
         """Generate embeddings for texts.
-        
+
         Args:
             texts: List of texts to embed
-            
+
         Returns:
             List of embedding vectors
         """
         if not texts:
             return []
-        
+
         logger.debug("Generating embeddings", text_count=len(texts))
         try:
             embeddings = self.model.encode(texts, convert_to_numpy=False, show_progress_bar=False)

@@ -59,6 +59,14 @@ async def lifespan(app: FastAPI):
         try:
             _app_config = AppConfig.from_yaml(config_path, agents_config_path)
             logger.info("Configuration loaded successfully")
+            
+            # Reconfigure logging with settings from config
+            setup_logging(
+                log_level=_app_config.logging.level,
+                log_format=_app_config.logging.format,
+                log_file=_app_config.logging.file
+            )
+            logger.info("Logging reconfigured from config")
         except ConfigurationError as e:
             logger.error(f"Configuration error: {e}")
             raise RuntimeError(f"Configuration error: {e}") from e

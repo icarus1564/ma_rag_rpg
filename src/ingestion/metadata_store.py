@@ -5,6 +5,7 @@ from dataclasses import dataclass, field, asdict
 import json
 from pathlib import Path
 from ..utils.logging import get_logger
+from ..utils.debug_logging import debug_log_method
 
 logger = get_logger(__name__)
 
@@ -24,13 +25,14 @@ class ChunkMetadata:
 class MetadataStore:
     """Store and retrieve chunk metadata."""
     
+    @debug_log_method
     def save_metadata(
         self,
         chunks: List[ChunkMetadata],
         path: str
     ) -> None:
         """Save chunk metadata to disk.
-        
+
         Args:
             chunks: List of chunk metadata
             path: File path to save to
@@ -50,12 +52,13 @@ class MetadataStore:
         
         logger.info("Chunk metadata saved successfully", path=path, chunk_count=len(chunks))
     
+    @debug_log_method
     def load_metadata(self, path: str) -> Dict[str, ChunkMetadata]:
         """Load chunk metadata from disk.
-        
+
         Args:
             path: File path to load from
-            
+
         Returns:
             Dictionary mapping chunk_id to metadata
         """

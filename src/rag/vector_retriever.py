@@ -6,6 +6,7 @@ from ..core.base_agent import RetrievalResult
 from .vector_db.base import BaseVectorDB
 from ..ingestion.embedder import Embedder
 from ..utils.logging import get_logger
+from ..utils.debug_logging import debug_log_method
 
 logger = get_logger(__name__)
 
@@ -30,6 +31,7 @@ class VectorRetriever(BaseRetriever):
         self.collection_name = collection_name
         self.embedder = embedder
     
+    @debug_log_method
     def retrieve(
         self,
         query: str,
@@ -37,12 +39,12 @@ class VectorRetriever(BaseRetriever):
         filters: Optional[Dict[str, Any]] = None
     ) -> List[RetrievalResult]:
         """Retrieve using vector search.
-        
+
         Args:
             query: Search query
             top_k: Number of results to return
             filters: Optional metadata filters
-            
+
         Returns:
             List of RetrievalResult objects
         """

@@ -11,6 +11,7 @@ from .session import GameSession, Turn
 from .orchestrator import GameOrchestrator
 from .retrieval_manager import RetrievalManager
 from ..utils.logging import get_logger
+from ..utils.debug_logging import debug_log_method
 
 logger = get_logger(__name__)
 
@@ -122,6 +123,7 @@ class GameLoop:
         # Track progress per session
         self._progress: Dict[str, TurnProgress] = {}
 
+    @debug_log_method
     def execute_turn(
         self,
         session: GameSession,
@@ -244,6 +246,7 @@ class GameLoop:
                 error=error_msg,
             )
 
+    @debug_log_method
     def _perform_retrieval(
         self,
         session: GameSession,
@@ -299,6 +302,7 @@ class GameLoop:
 
         return results
 
+    @debug_log_method
     def _execute_agents(
         self,
         session: GameSession,

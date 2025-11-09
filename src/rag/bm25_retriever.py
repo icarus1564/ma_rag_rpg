@@ -8,6 +8,7 @@ from .base_retriever import BaseRetriever
 from ..core.base_agent import RetrievalResult
 from ..ingestion.metadata_store import MetadataStore, ChunkMetadata
 from ..utils.logging import get_logger
+from ..utils.debug_logging import debug_log_method
 
 logger = get_logger(__name__)
 
@@ -66,6 +67,7 @@ class BM25Retriever(BaseRetriever):
         self.index_to_chunk_id = {meta.chunk_index: meta.chunk_id for meta in sorted_metadata}
         logger.info("Chunk texts loaded", count=len(self.chunks))
 
+    @debug_log_method
     def load_index(self, index_path: str, metadata_path: str) -> None:
         """Load BM25 index and metadata.
 
@@ -87,6 +89,7 @@ class BM25Retriever(BaseRetriever):
         """
         return self.index is not None and len(self.chunks) > 0
     
+    @debug_log_method
     def retrieve(
         self,
         query: str,
@@ -94,12 +97,12 @@ class BM25Retriever(BaseRetriever):
         filters: Optional[Dict[str, Any]] = None
     ) -> List[RetrievalResult]:
         """Retrieve using BM25.
-        
+
         Args:
             query: Search query
             top_k: Number of results to return
             filters: Optional metadata filters
-            
+
         Returns:
             List of RetrievalResult objects
         """

@@ -10,6 +10,7 @@ from ..rag.vector_retriever import VectorRetriever
 from ..rag.hybrid_retriever import HybridRetriever
 from ..rag.vector_db.factory import VectorDBFactory
 from ..utils.logging import get_logger
+from ..utils.debug_logging import debug_log_method
 
 logger = get_logger(__name__)
 
@@ -127,6 +128,7 @@ class RetrievalManager:
             else:
                 self.logger.warning("Vector DB collection not found", collection=collection_name)
     
+    @debug_log_method
     def retrieve(
         self,
         query: str,
@@ -137,14 +139,14 @@ class RetrievalManager:
     ) -> List[RetrievalResult]:
         """
         Retrieve relevant chunks for a query.
-        
+
         Args:
             query: Search query
             top_k: Number of results to return
             agent_name: Optional agent name for logging
             use_cache: Whether to use cached results
             rewrite_query: Whether to rewrite query before retrieval
-            
+
         Returns:
             List of RetrievalResult objects
         """

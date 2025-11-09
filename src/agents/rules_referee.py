@@ -9,6 +9,7 @@ from ..core.retrieval_manager import RetrievalManager
 from .prompt_templates import PromptTemplateManager
 from .response_parsers import ResponseParser
 from .citation_utils import CitationMapper
+from ..utils.debug_logging import debug_log_method
 
 
 class ValidationSeverity(str, Enum):
@@ -31,6 +32,7 @@ class RulesRefereeAgent(BaseAgent):
         super().__init__(config)
         self.retrieval_manager = retrieval_manager
 
+    @debug_log_method
     def process(self, context: AgentContext) -> AgentOutput:
         """Process context and validate player action.
 
@@ -96,6 +98,7 @@ class RulesRefereeAgent(BaseAgent):
                 }
             )
 
+    @debug_log_method
     def _build_query(self, context: AgentContext) -> str:
         """Build retrieval query for fact validation.
 
@@ -175,6 +178,7 @@ class RulesRefereeAgent(BaseAgent):
 
         return list(set(entities))[:5]
 
+    @debug_log_method
     def _build_prompt(self, context: AgentContext, results: List[RetrievalResult]) -> str:
         """Build LLM prompt for validation.
 
@@ -239,6 +243,7 @@ class RulesRefereeAgent(BaseAgent):
         """
         return PromptTemplateManager.get_template("rules_referee_system")
 
+    @debug_log_method
     def _parse_response(self, response: str, results: List[RetrievalResult]) -> AgentOutput:
         """Parse LLM response into AgentOutput.
 

@@ -8,6 +8,7 @@ from ..core.retrieval_manager import RetrievalManager
 from .prompt_templates import PromptTemplateManager
 from .response_parsers import ResponseParser
 from .citation_utils import CitationMapper
+from ..utils.debug_logging import debug_log_method
 
 
 class NarratorAgent(BaseAgent):
@@ -23,6 +24,7 @@ class NarratorAgent(BaseAgent):
         super().__init__(config)
         self.retrieval_manager = retrieval_manager
 
+    @debug_log_method
     def process(self, context: AgentContext) -> AgentOutput:
         """Process context and return scene description.
 

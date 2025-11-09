@@ -10,6 +10,7 @@ from .embedder import Embedder
 from .metadata_store import MetadataStore, ChunkMetadata
 from ..rag.vector_db.base import BaseVectorDB, VectorDocument
 from ..utils.logging import get_logger
+from ..utils.debug_logging import debug_log_method
 
 logger = get_logger(__name__)
 
@@ -52,7 +53,8 @@ class IngestionPipeline:
         self.embedder = embedder
         self.vector_db = vector_db
         self.metadata_store = metadata_store
-    
+
+    @debug_log_method
     def ingest(
         self,
         corpus_path: str,

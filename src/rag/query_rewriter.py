@@ -5,6 +5,7 @@ import nltk
 from nltk.corpus import wordnet
 from ..core.base_agent import LLMClient
 from ..utils.logging import get_logger
+from ..utils.debug_logging import debug_log_method
 
 logger = get_logger(__name__)
 
@@ -45,12 +46,13 @@ class QueryRewriter:
         # except Exception as e:
         #     logger.warning("Failed to download NLTK data", error=str(e))
     
+    @debug_log_method
     def rewrite(self, query: str) -> str:
         """Rewrite query for better retrieval.
-        
+
         Args:
             query: Original query
-            
+
         Returns:
             Rewritten query
         """

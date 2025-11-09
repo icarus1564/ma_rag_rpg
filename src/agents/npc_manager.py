@@ -8,6 +8,7 @@ from .prompt_templates import PromptTemplateManager
 from .response_parsers import ResponseParser
 from .citation_utils import CitationMapper
 from .npc_persona_extractor import NPCPersonaExtractor
+from ..utils.debug_logging import debug_log_method
 
 
 class NPCManagerAgent(BaseAgent):
@@ -24,6 +25,7 @@ class NPCManagerAgent(BaseAgent):
         self.retrieval_manager = retrieval_manager
         self.persona_extractor = NPCPersonaExtractor(self.llm_client)
 
+    @debug_log_method
     def process(self, context: AgentContext) -> AgentOutput:
         """Process context and generate NPC dialogue.
 
@@ -105,6 +107,7 @@ class NPCManagerAgent(BaseAgent):
         # No NPC determined
         return None
 
+    @debug_log_method
     def _get_or_extract_persona(self, npc_name: str, context: AgentContext) -> Dict[str, Any]:
         """Get cached persona or extract just-in-time.
 
@@ -149,6 +152,7 @@ class NPCManagerAgent(BaseAgent):
             agent_name=f"{self.config.name}_persona"
         )
 
+    @debug_log_method
     def _retrieve_dialogue_context(self, npc_name: str, context: AgentContext) -> List[RetrievalResult]:
         """Retrieve chunks for dialogue generation.
 
@@ -167,6 +171,7 @@ class NPCManagerAgent(BaseAgent):
             agent_name=self.config.name
         )
 
+    @debug_log_method
     def _build_prompt(
         self,
         npc_name: str,
@@ -256,6 +261,7 @@ class NPCManagerAgent(BaseAgent):
             persona=persona_text
         )
 
+    @debug_log_method
     def _parse_response(
         self,
         response: str,

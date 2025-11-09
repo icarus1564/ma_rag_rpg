@@ -7,6 +7,7 @@ from datetime import datetime
 from .session import GameSession
 from .config import SessionConfig
 from ..utils.logging import get_logger
+from ..utils.debug_logging import debug_log_method
 
 logger = get_logger(__name__)
 
@@ -26,13 +27,14 @@ class SessionManager:
         self._lock = threading.Lock()
         self.logger = get_logger(__name__)
     
+    @debug_log_method
     def create_session(self, initial_context: Optional[str] = None) -> GameSession:
         """
         Create a new game session.
-        
+
         Args:
             initial_context: Optional initial context for the game
-            
+
         Returns:
             New GameSession instance
         """
@@ -51,13 +53,14 @@ class SessionManager:
         self.logger.info("Session created", session_id=session_id)
         return session
     
+    @debug_log_method
     def get_session(self, session_id: str) -> Optional[GameSession]:
         """
         Get a session by ID.
-        
+
         Args:
             session_id: Session identifier
-            
+
         Returns:
             GameSession if found, None otherwise
         """
@@ -69,13 +72,14 @@ class SessionManager:
                 return None
             return session
     
+    @debug_log_method
     def delete_session(self, session_id: str) -> bool:
         """
         Delete a session.
-        
+
         Args:
             session_id: Session identifier
-            
+
         Returns:
             True if session was deleted, False if not found
         """
@@ -86,10 +90,11 @@ class SessionManager:
                 return True
             return False
     
+    @debug_log_method
     def cleanup_expired_sessions(self) -> int:
         """
         Remove all expired sessions.
-        
+
         Returns:
             Number of sessions removed
         """

@@ -6,6 +6,7 @@ from ..core.base_agent import RetrievalResult
 from .bm25_retriever import BM25Retriever
 from .vector_retriever import VectorRetriever
 from ..utils.logging import get_logger
+from ..utils.debug_logging import debug_log_method
 
 logger = get_logger(__name__)
 
@@ -39,6 +40,7 @@ class HybridRetriever(BaseRetriever):
         self.vector_weight = vector_weight
         self.rrf_k = rrf_k
     
+    @debug_log_method
     def retrieve(
         self,
         query: str,
@@ -46,12 +48,12 @@ class HybridRetriever(BaseRetriever):
         filters: Optional[Dict[str, Any]] = None
     ) -> List[RetrievalResult]:
         """Retrieve using hybrid approach.
-        
+
         Args:
             query: Search query
             top_k: Number of results to return
             filters: Optional metadata filters
-            
+
         Returns:
             List of RetrievalResult objects
         """
@@ -90,6 +92,7 @@ class HybridRetriever(BaseRetriever):
         # Stub implementation
         return self.retrieve(query, top_k)
     
+    @debug_log_method
     def _fuse_rrf(
         self,
         bm25_results: List[RetrievalResult],
@@ -97,12 +100,12 @@ class HybridRetriever(BaseRetriever):
         top_k: int
     ) -> List[RetrievalResult]:
         """Fuse results using Reciprocal Rank Fusion.
-        
+
         Args:
             bm25_results: BM25 retrieval results
             vector_results: Vector retrieval results
             top_k: Number of results to return
-            
+
         Returns:
             Fused results sorted by score
         """
@@ -152,6 +155,7 @@ class HybridRetriever(BaseRetriever):
         
         return fused_results
     
+    @debug_log_method
     def _fuse_weighted(
         self,
         bm25_results: List[RetrievalResult],
@@ -159,12 +163,12 @@ class HybridRetriever(BaseRetriever):
         top_k: int
     ) -> List[RetrievalResult]:
         """Fuse results using weighted score combination.
-        
+
         Args:
             bm25_results: BM25 retrieval results
             vector_results: Vector retrieval results
             top_k: Number of results to return
-            
+
         Returns:
             Fused results sorted by score
         """

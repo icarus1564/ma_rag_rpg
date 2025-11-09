@@ -6,6 +6,7 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Any, Optional
 from datetime import datetime
 from .config import SessionConfig
+from ..utils.debug_logging import debug_log_method
 
 
 @dataclass
@@ -37,12 +38,14 @@ class GameSession:
         if "memory" not in self.state:
             self.state["memory"] = []
     
+    @debug_log_method
     def add_turn(self, turn: Turn) -> None:
         """Add a turn to the session."""
         self.turns.append(turn)
         self.last_accessed = datetime.now()
         self._apply_sliding_window()
     
+    @debug_log_method
     def _apply_sliding_window(self) -> None:
         """Apply sliding window memory based on config."""
         if not self.config.sliding_window:
@@ -88,6 +91,7 @@ class GameSession:
                 parts.append(f"{agent_name}: {str(output)}")
         return "\n".join(parts)
     
+    @debug_log_method
     def get_memory_context(self) -> str:
         """Get formatted memory context for agents."""
         if not self.state.get("memory"):
@@ -102,6 +106,7 @@ class GameSession:
         
         return "\n".join(lines)
     
+    @debug_log_method
     def to_dict(self) -> Dict[str, Any]:
         """Serialize session to dictionary for observability."""
         return {
@@ -115,6 +120,7 @@ class GameSession:
             "state": self.state,
         }
     
+    @debug_log_method
     def is_expired(self) -> bool:
         """Check if session has expired based on TTL."""
         elapsed = (datetime.now() - self.last_accessed).total_seconds()

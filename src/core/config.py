@@ -122,6 +122,14 @@ class VectorDBConfig:
 
 
 @dataclass
+class LoggingConfig:
+    """Configuration for logging system."""
+    level: str = "INFO"  # DEBUG, INFO, WARNING, ERROR
+    format: Literal["json", "text"] = "json"  # json or text
+    file: Optional[str] = None  # Path to log file, None for console output
+
+
+@dataclass
 class AppConfig:
     """Main application configuration."""
     agents: Dict[str, AgentConfig] = field(default_factory=dict)
@@ -129,7 +137,8 @@ class AppConfig:
     session: SessionConfig = field(default_factory=SessionConfig)
     ingestion: IngestionConfig = field(default_factory=IngestionConfig)
     vector_db: VectorDBConfig = field(default_factory=VectorDBConfig)
-    log_level: str = "INFO"
+    logging: LoggingConfig = field(default_factory=LoggingConfig)
+    log_level: str = "INFO"  # Deprecated: use logging.level instead
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     
@@ -342,13 +351,28 @@ class AppConfig:
             })
         )
         
+        # Build logging config
+        logging_dict = config_dict.get("logging", {})
+        # Support legacy log_level at root level for backward compatibility
+        log_level = logging_dict.get("level") if logging_dict else config_dict.get("log_level", "INFO")
+        log_file = logging_dict.get("file")
+        # Convert empty string or None to None
+        if log_file == "":
+            log_file = None
+        logging_config = LoggingConfig(
+            level=log_level,
+            format=logging_dict.get("format", "json"),
+            file=log_file,
+        )
+        
         return cls(
             agents=agents,
             retrieval=retrieval_config,
             session=session_config,
             ingestion=ingestion_config,
             vector_db=vector_db_config,
-            log_level=config_dict.get("log_level", "INFO"),
+            logging=logging_config,
+            log_level=config_dict.get("log_level", "INFO"),  # Keep for backward compatibility
             api_host=config_dict.get("api_host", "0.0.0.0"),
             api_port=config_dict.get("api_port", 8000),
         )
