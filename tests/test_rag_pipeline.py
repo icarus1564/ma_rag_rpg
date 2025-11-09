@@ -20,42 +20,19 @@ from src.core.base_agent import RetrievalResult
 
 
 @pytest.fixture
-def temp_dir():
-    """Create a temporary directory for test data."""
-    temp_path = tempfile.mkdtemp()
-    yield temp_path
-    shutil.rmtree(temp_path)
+def test_indices_dir():
+    """Use the fixed test indices directory."""
+    test_dir = Path(__file__).parent.parent / "data" / "test_data" / "indices"
+    test_dir.mkdir(parents=True, exist_ok=True)
+    return str(test_dir)
 
 
 @pytest.fixture
-def test_corpus_file(temp_dir):
-    """Create a test corpus file."""
-    corpus_path = Path(temp_dir) / "test_corpus.txt"
-    corpus_path.write_text("""
-The Ancient Library of Alexandria
-
-The Library of Alexandria was one of the largest and most significant libraries of the ancient world. It was dedicated to the Muses, the nine goddesses of the arts. The library was part of a larger research institution called the Mouseion, which was dedicated to learning.
-
-The library was built in the 3rd century BCE during the reign of Ptolemy II Philadelphus. It was located in the city of Alexandria, Egypt, which was founded by Alexander the Great. The library aimed to collect all the knowledge of the world and housed hundreds of thousands of scrolls.
-
-The library's collection included works on mathematics, astronomy, physics, natural sciences, and other subjects. Scholars from all over the Mediterranean came to study at the library. The library was also known for its translation efforts, particularly the translation of Hebrew scriptures into Greek.
-
-The exact fate of the library is unknown, but it is believed to have been destroyed in a series of fires. The most famous account attributes the destruction to Julius Caesar in 48 BCE, though other accounts suggest it may have been destroyed later or gradually declined over time.
-
-The loss of the Library of Alexandria is considered one of the greatest tragedies in the history of knowledge. Many unique works of literature and science were lost forever. The library's destruction represents the fragility of human knowledge and the importance of preserving cultural heritage.
-
-Artificial Intelligence and Machine Learning
-
-Artificial intelligence is a branch of computer science that aims to create intelligent machines. Machine learning is a subset of artificial intelligence that enables computers to learn from data without being explicitly programmed.
-
-Machine learning algorithms build mathematical models based on training data to make predictions or decisions. There are three main types of machine learning: supervised learning, unsupervised learning, and reinforcement learning.
-
-Supervised learning uses labeled training data to learn a function that maps inputs to outputs. Common algorithms include linear regression, decision trees, and neural networks. Unsupervised learning finds hidden patterns in data without labeled examples. Clustering and dimensionality reduction are common unsupervised learning tasks.
-
-Reinforcement learning involves an agent learning to make decisions by interacting with an environment. The agent receives rewards or penalties for its actions and learns to maximize cumulative reward over time. This approach has been successful in game playing, robotics, and autonomous systems.
-
-Deep learning is a subset of machine learning that uses neural networks with multiple layers. Deep learning has achieved remarkable success in image recognition, natural language processing, and speech recognition. Convolutional neural networks excel at image tasks, while recurrent neural networks are effective for sequence data.
-""")
+def test_corpus_file():
+    """Use the existing test corpus file."""
+    corpus_path = Path(__file__).parent.parent / "data" / "test_data" / "test_corpus.txt"
+    # Use existing test corpus file
+    assert corpus_path.exists(), f"Test corpus file not found at {corpus_path}"
     return str(corpus_path)
 
 
@@ -84,13 +61,20 @@ def metadata_store():
 
 
 @pytest.fixture
-def vector_db(temp_dir):
-    """Create a ChromaVectorDB instance."""
+def vector_db(test_indices_dir, request):
+    """Create a ChromaVectorDB instance with unique database path per test."""
+    # Use test name to create unique database path for each test
+    test_name = request.node.name.replace("[", "_").replace("]", "_")
+    vector_db_dir = Path(test_indices_dir) / "vector_db" / test_name
+    vector_db_dir.mkdir(parents=True, exist_ok=True)
     config = {
-        "persist_directory": str(Path(temp_dir) / "vector_db"),
+        "persist_directory": str(vector_db_dir),
         "in_memory": False
     }
-    return ChromaVectorDB(config)
+    db = ChromaVectorDB(config)
+    yield db
+    # Cleanup: close database connection after test
+    db.close()
 
 
 class TestChunker:
@@ -182,7 +166,7 @@ class TestEmbedder:
 class TestBM25Indexer:
     """Test BM25Indexer functionality."""
     
-    def test_build_index(self, bm25_indexer, temp_dir):
+    def test_build_index(self, bm25_indexer, test_indices_dir):
         """Test building BM25 index."""
         chunks = [
             "This is the first chunk about machine learning.",
@@ -193,16 +177,16 @@ class TestBM25Indexer:
         index = bm25_indexer.build_index(chunks)
         assert index is not None
     
-    def test_save_and_load_index(self, bm25_indexer, temp_dir):
+    def test_save_and_load_index(self, bm25_indexer, test_indices_dir):
         """Test saving and loading BM25 index."""
         chunks = [
             "This is the first chunk.",
             "This is the second chunk.",
             "This is the third chunk."
         ]
-        
+
         index = bm25_indexer.build_index(chunks)
-        index_path = str(Path(temp_dir) / "test_index.pkl")
+        index_path = str(Path(test_indices_dir) / "test_index.pkl")
         
         bm25_indexer.save_index(index, index_path)
         assert Path(index_path).exists()
@@ -219,7 +203,7 @@ class TestBM25Indexer:
 class TestMetadataStore:
     """Test MetadataStore functionality."""
     
-    def test_save_and_load_metadata(self, metadata_store, temp_dir):
+    def test_save_and_load_metadata(self, metadata_store, test_indices_dir):
         """Test saving and loading metadata."""
         chunks = [
             ChunkMetadata(
@@ -239,8 +223,8 @@ class TestMetadataStore:
                 source="test.txt"
             )
         ]
-        
-        metadata_path = str(Path(temp_dir) / "metadata.json")
+
+        metadata_path = str(Path(test_indices_dir) / "metadata.json")
         metadata_store.save_metadata(chunks, metadata_path)
         assert Path(metadata_path).exists()
         
@@ -249,7 +233,7 @@ class TestMetadataStore:
         assert "chunk_0" in loaded_metadata
         assert "chunk_1" in loaded_metadata
     
-    def test_get_chunk_metadata(self, metadata_store, temp_dir):
+    def test_get_chunk_metadata(self, metadata_store, test_indices_dir):
         """Test getting specific chunk metadata."""
         chunks = [
             ChunkMetadata(
@@ -261,8 +245,8 @@ class TestMetadataStore:
                 source="test.txt"
             )
         ]
-        
-        metadata_path = str(Path(temp_dir) / "metadata.json")
+
+        metadata_path = str(Path(test_indices_dir) / "metadata.json")
         metadata_store.save_metadata(chunks, metadata_path)
         
         metadata = metadata_store.get_chunk_metadata("chunk_0", metadata_path)
@@ -274,11 +258,10 @@ class TestMetadataStore:
 class TestIngestionPipeline:
     """Test IngestionPipeline functionality."""
     
-    def test_ingest_pipeline(self, chunker, embedder, bm25_indexer, metadata_store, vector_db, test_corpus_file, temp_dir):
+    def test_ingest_pipeline(self, chunker, embedder, bm25_indexer, metadata_store, vector_db, test_corpus_file, test_indices_dir):
         """Test full ingestion pipeline."""
-        # Create indices directory
-        indices_dir = Path(temp_dir) / "indices"
-        indices_dir.mkdir(parents=True, exist_ok=True)
+        # Use test indices directory
+        indices_dir = Path(test_indices_dir)
         
         pipeline = IngestionPipeline(
             chunker=chunker,
@@ -293,7 +276,8 @@ class TestIngestionPipeline:
             collection_name="test_collection",
             overwrite=True,
             chunk_size=200,
-            chunk_overlap=50
+            chunk_overlap=50,
+            indices_dir=test_indices_dir
         )
         
         assert isinstance(result, IngestionResult)
@@ -330,20 +314,19 @@ class TestIngestionPipeline:
 class TestVectorRetriever:
     """Test VectorRetriever functionality."""
     
-    def test_vector_retrieval(self, embedder, vector_db, test_corpus_file, temp_dir):
+    def test_vector_retrieval(self, embedder, vector_db, test_corpus_file, test_indices_dir):
         """Test vector retrieval."""
         # First, ingest data
         from src.ingestion.chunker import Chunker
         from src.ingestion.bm25_indexer import BM25Indexer
         from src.ingestion.metadata_store import MetadataStore
         from src.ingestion.pipeline import IngestionPipeline
-        
+
         chunker = Chunker()
         bm25_indexer = BM25Indexer()
         metadata_store = MetadataStore()
-        
-        indices_dir = Path(temp_dir) / "indices"
-        indices_dir.mkdir(parents=True, exist_ok=True)
+
+        indices_dir = Path(test_indices_dir)
         
         pipeline = IngestionPipeline(
             chunker=chunker,
@@ -358,7 +341,8 @@ class TestVectorRetriever:
             collection_name="test_collection",
             overwrite=True,
             chunk_size=200,
-            chunk_overlap=50
+            chunk_overlap=50,
+            indices_dir=test_indices_dir
         )
         
         # Now test retrieval
@@ -384,20 +368,19 @@ class TestVectorRetriever:
 class TestBM25Retriever:
     """Test BM25Retriever functionality."""
     
-    def test_bm25_retrieval(self, embedder, vector_db, test_corpus_file, temp_dir):
+    def test_bm25_retrieval(self, embedder, vector_db, test_corpus_file, test_indices_dir):
         """Test BM25 retrieval."""
         # First, ingest data
         from src.ingestion.chunker import Chunker
         from src.ingestion.bm25_indexer import BM25Indexer
         from src.ingestion.metadata_store import MetadataStore
         from src.ingestion.pipeline import IngestionPipeline
-        
+
         chunker = Chunker()
         bm25_indexer = BM25Indexer()
         metadata_store = MetadataStore()
-        
-        indices_dir = Path(temp_dir) / "indices"
-        indices_dir.mkdir(parents=True, exist_ok=True)
+
+        indices_dir = Path(test_indices_dir)
         
         pipeline = IngestionPipeline(
             chunker=chunker,
@@ -412,7 +395,8 @@ class TestBM25Retriever:
             collection_name="test_collection",
             overwrite=True,
             chunk_size=200,
-            chunk_overlap=50
+            chunk_overlap=50,
+            indices_dir=test_indices_dir
         )
         
         # Now test BM25 retrieval
@@ -437,20 +421,19 @@ class TestBM25Retriever:
 class TestHybridRetriever:
     """Test HybridRetriever functionality."""
     
-    def test_hybrid_retrieval_rrf(self, embedder, vector_db, test_corpus_file, temp_dir):
+    def test_hybrid_retrieval_rrf(self, embedder, vector_db, test_corpus_file, test_indices_dir):
         """Test hybrid retrieval with RRF fusion."""
         # First, ingest data
         from src.ingestion.chunker import Chunker
         from src.ingestion.bm25_indexer import BM25Indexer
         from src.ingestion.metadata_store import MetadataStore
         from src.ingestion.pipeline import IngestionPipeline
-        
+
         chunker = Chunker()
         bm25_indexer = BM25Indexer()
         metadata_store = MetadataStore()
-        
-        indices_dir = Path(temp_dir) / "indices"
-        indices_dir.mkdir(parents=True, exist_ok=True)
+
+        indices_dir = Path(test_indices_dir)
         
         pipeline = IngestionPipeline(
             chunker=chunker,
@@ -465,7 +448,8 @@ class TestHybridRetriever:
             collection_name="test_collection",
             overwrite=True,
             chunk_size=200,
-            chunk_overlap=50
+            chunk_overlap=50,
+            indices_dir=test_indices_dir
         )
         
         # Create retrievers
@@ -500,20 +484,19 @@ class TestHybridRetriever:
         scores = [r.score for r in results]
         assert scores == sorted(scores, reverse=True)
     
-    def test_hybrid_retrieval_weighted(self, embedder, vector_db, test_corpus_file, temp_dir):
+    def test_hybrid_retrieval_weighted(self, embedder, vector_db, test_corpus_file, test_indices_dir):
         """Test hybrid retrieval with weighted fusion."""
         # First, ingest data
         from src.ingestion.chunker import Chunker
         from src.ingestion.bm25_indexer import BM25Indexer
         from src.ingestion.metadata_store import MetadataStore
         from src.ingestion.pipeline import IngestionPipeline
-        
+
         chunker = Chunker()
         bm25_indexer = BM25Indexer()
         metadata_store = MetadataStore()
-        
-        indices_dir = Path(temp_dir) / "indices"
-        indices_dir.mkdir(parents=True, exist_ok=True)
+
+        indices_dir = Path(test_indices_dir)
         
         pipeline = IngestionPipeline(
             chunker=chunker,
@@ -528,7 +511,8 @@ class TestHybridRetriever:
             collection_name="test_collection",
             overwrite=True,
             chunk_size=200,
-            chunk_overlap=50
+            chunk_overlap=50,
+            indices_dir=test_indices_dir
         )
         
         # Create retrievers

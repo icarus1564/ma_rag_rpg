@@ -1,7 +1,7 @@
 """Ingestion pipeline orchestrator."""
 
 from dataclasses import dataclass
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 import time
 from pathlib import Path
 from .chunker import Chunker, Chunk
@@ -61,7 +61,8 @@ class IngestionPipeline:
         collection_name: str = "corpus_embeddings",
         overwrite: bool = False,
         chunk_size: int = 500,
-        chunk_overlap: int = 50
+        chunk_overlap: int = 50,
+        indices_dir: Optional[str] = None
     ) -> IngestionResult:
         """Run full ingestion pipeline.
         
@@ -71,12 +72,17 @@ class IngestionPipeline:
             overwrite: Whether to overwrite existing collection
             chunk_size: Target chunk size
             chunk_overlap: Overlap between chunks
+            indices_dir: Optional directory for storing indices (defaults to "data/indices")
             
         Returns:
             IngestionResult with statistics
         """
         start_time = time.time()
         logger.info("Starting ingestion pipeline", corpus_path=corpus_path, collection=collection_name)
+        
+        # Determine indices directory
+        indices_base = Path(indices_dir) if indices_dir else Path("data/indices")
+        indices_base.mkdir(parents=True, exist_ok=True)
         
         # 1. Load corpus text
         corpus_path_obj = Path(corpus_path)
@@ -106,7 +112,7 @@ class IngestionPipeline:
         bm25_index = self.bm25_indexer.build_index(chunk_texts)
         
         # Save BM25 index
-        bm25_index_path = f"data/indices/bm25_index_{collection_name}.pkl"
+        bm25_index_path = str(indices_base / f"bm25_index_{collection_name}.pkl")
         self.bm25_indexer.save_index(bm25_index, bm25_index_path)
         logger.info("BM25 index built and saved", path=bm25_index_path)
         
@@ -158,7 +164,7 @@ class IngestionPipeline:
                 additional_metadata=chunk.metadata
             ))
         
-        metadata_path = f"data/indices/chunks_{collection_name}.json"
+        metadata_path = str(indices_base / f"chunks_{collection_name}.json")
         self.metadata_store.save_metadata(chunk_metadata_list, metadata_path)
         logger.info("Metadata saved", path=metadata_path)
         
