@@ -199,10 +199,14 @@ class TestE2EGameLoopRedesign:
         assert game_session.losses == 0
 
     def test_e2e_user_disqualification(self, mock_retrieval_manager, game_session):
-        """Test user prompt disqualification - player loses."""
+        """Test user prompt disqualification - player loses.
+
+        The simplified flow now uses the RulesReferee's message directly
+        without calling the Narrator.
+        """
 
         # Mock RulesReferee - rejects user prompt
-        def rules_referee_response(context):
+        def rules_referee_response(_context):
             return AgentOutput(
                 content="User prompt is invalid - quantum physics not in LOTR",
                 citations=[],
@@ -243,24 +247,10 @@ class TestE2EGameLoopRedesign:
                     }
                 )
 
-        # Mock Narrator - generates disqualification message
-        def narrator_response(context):
-            mode = context.session_state.get("mode")
-            if mode == "disqualification":
-                return AgentOutput(
-                    content=(
-                        "Your question about quantum physics doesn't fit in Middle-earth. "
-                        "Perhaps you meant to ask about the ancient magic of wizards?"
-                    ),
-                    citations=[],
-                    reasoning="Gentle redirection to corpus-appropriate topics",
-                    metadata={}
-                )
-
+        # Note: Narrator is NOT needed for disqualification anymore
         orchestrator = GameOrchestrator(agents={
             "rules_referee": self.create_mock_agent("rules_referee", rules_referee_response),
             "scene_planner": self.create_mock_agent("scene_planner", scene_planner_response),
-            "narrator": self.create_mock_agent("narrator", narrator_response),
         })
 
         game_loop = GameLoop(orchestrator, mock_retrieval_manager)
@@ -286,10 +276,15 @@ class TestE2EGameLoopRedesign:
         assert result.scene_plan is not None
         assert result.scene_plan.next_action == "disqualify"
 
-        # Check narrator output
+        # Check narrator output contains the RulesReferee message
         assert result.narrator_output is not None
-        assert "doesn't fit in Middle-earth" in result.narrator_output["content"]
+        assert "doesn't fit this world" in result.narrator_output["content"]
+        assert "quantum physics not relevant to Middle-earth" in result.narrator_output["content"]
         assert result.npc_output is None
+
+        # Verify metadata source is from rules_referee
+        assert result.narrator_output["metadata"]["source"] == "rules_referee"
+        assert result.narrator_output["metadata"]["disqualification_type"] == "user_prompt"
 
         # Check session state
         assert game_session.losses == 1
@@ -297,13 +292,19 @@ class TestE2EGameLoopRedesign:
 
         # Check metadata structure (for API compatibility)
         assert "timestamp" in result.metadata, "metadata should include timestamp"
+        assert "disqualification_reason" in result.metadata
+        assert result.metadata["disqualification_reason"] == result.user_validation.reason
         assert "retrieval" in result.metadata, "metadata should include retrieval"
         assert "agents_executed" in result.metadata, "metadata should include agents_executed"
         assert "disqualification_reason" in result.metadata
         assert "alternative_suggestions" in result.metadata
 
     def test_e2e_agent_disqualification_player_wins(self, mock_retrieval_manager, game_session):
-        """Test agent response disqualification - player wins."""
+        """Test agent response disqualification - player wins.
+
+        The simplified flow now uses the RulesReferee's message directly
+        without calling the Narrator for correction.
+        """
 
         # Mock RulesReferee - approves user prompt, rejects agent response
         def rules_referee_response(context):
@@ -342,7 +343,7 @@ class TestE2EGameLoopRedesign:
                 )
 
         # Mock ScenePlanner
-        def scene_planner_response(context):
+        def scene_planner_response(_context):
             return AgentOutput(
                 content="Route to narrator",
                 citations=[],
@@ -358,31 +359,17 @@ class TestE2EGameLoopRedesign:
                 }
             )
 
-        # Mock Narrator - first call returns bad response, second call is correction
+        # Mock Narrator - returns response that will be rejected
         narrator_call_count = [0]
-        def narrator_response(context):
+        def narrator_response(_context):
             narrator_call_count[0] += 1
-            mode = context.session_state.get("mode")
-
-            if mode == "correction":
-                # Correction mode
-                return AgentOutput(
-                    content=(
-                        "The previous response was inaccurate. "
-                        "According to the corpus, Gandalf actually said..."
-                    ),
-                    citations=[1],
-                    reasoning="Providing accurate corpus-based correction",
-                    metadata={}
-                )
-            else:
-                # First call - narration mode (will be rejected)
-                return AgentOutput(
-                    content="Gandalf says: 'I love quantum mechanics!' (This is wrong)",
-                    citations=[],
-                    reasoning="Made up response",
-                    metadata={}
-                )
+            # Narration mode (will be rejected by RulesReferee)
+            return AgentOutput(
+                content="Gandalf says: 'I love quantum mechanics!' (This is wrong)",
+                citations=[],
+                reasoning="Made up response",
+                metadata={}
+            )
 
         orchestrator = GameOrchestrator(agents={
             "rules_referee": self.create_mock_agent("rules_referee", rules_referee_response),
@@ -409,13 +396,17 @@ class TestE2EGameLoopRedesign:
         assert result.agent_validation is not None, "assert agent_validation not None"
         assert result.agent_validation.approved is False
 
-        # Check narrator output (should be correction)
+        # Check narrator output contains the RulesReferee message
         assert result.narrator_output is not None, "assert narrator_output not None"
-        # The narrator should have been called twice: once for bad response, once for correction
-        assert narrator_call_count[0] == 2
-        # The result should contain the correction OR metadata about original response
-        assert ("previous response was inaccurate" in result.narrator_output["content"] or
-                "original_agent_response" in result.metadata)
+        # The narrator should have been called only ONCE (for the bad response, not for correction)
+        assert narrator_call_count[0] == 1, f"Expected 1 narrator call, got {narrator_call_count[0]}"
+        # The result should contain the correction message from RulesReferee
+        assert "contradicts the established facts" in result.narrator_output["content"]
+        assert "inaccurate information not in corpus" in result.narrator_output["content"]
+
+        # Verify metadata source is from rules_referee
+        assert result.narrator_output["metadata"]["source"] == "rules_referee"
+        assert result.narrator_output["metadata"]["disqualification_type"] == "agent_response"
 
         # Check session state
         assert game_session.wins == 1
@@ -426,7 +417,9 @@ class TestE2EGameLoopRedesign:
         assert "retrieval" in result.metadata, "metadata should include retrieval"
         assert "agents_executed" in result.metadata, "metadata should include agents_executed"
         assert "original_agent_response" in result.metadata
+        assert result.metadata["original_agent_response"] == "Gandalf says: 'I love quantum mechanics!' (This is wrong)"
         assert "disqualification_reason" in result.metadata
+        assert result.metadata["disqualification_reason"] == result.agent_validation.reason
 
     def test_e2e_scene_description_path(self, mock_retrieval_manager, game_session):
         """Test scene description with narrator-only interaction."""

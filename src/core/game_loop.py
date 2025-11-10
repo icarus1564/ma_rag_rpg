@@ -29,12 +29,10 @@ class TurnPhase(str, Enum):
     USER_VALIDATION = "user_validation"
     SCENE_PLANNING = "scene_planning"
     PERSONA_EXTRACTION = "persona_extraction"
-    NARRATOR_DISQUALIFY = "narrator_disqualify"
     NARRATOR_SCENE = "narrator_scene"
     NPC_RESPONSE = "npc_response"
     AGENT_RETRIEVAL = "agent_retrieval"
     AGENT_VALIDATION = "agent_validation"
-    NARRATOR_CORRECTION = "narrator_correction"
     AGGREGATING = "aggregating"
     UPDATING_STATE = "updating_state"
     COMPLETED = "completed"
@@ -893,57 +891,33 @@ class GameLoop:
         validation_result: ValidationResult,
         progress: TurnProgress,
     ) -> TurnResult:
-        """Handle user prompt disqualification - player loses."""
-        progress.phase = TurnPhase.NARRATOR_DISQUALIFY
-        progress.current_agent = "narrator"
-        progress.message = "Generating disqualification message"
-        self._update_progress(progress)
+        """Handle user prompt disqualification - player loses.
 
-        narrator = self.orchestrator.agents.get("narrator")
-        if not narrator or not narrator.config.enabled:
-            # Fallback message if narrator unavailable
-            disqualification_msg = {
-                "content": (
-                    f"That action doesn't fit this world. {validation_result.reason}\n\n"
-                    f"Try: {', '.join(scene_plan.alternative_suggestions or [])}"
-                ),
-                "citations": [],
-                "reasoning": "Narrator unavailable for disqualification",
-                "metadata": {},
-            }
-        else:
-            # Create context for disqualification
-            from .base_agent import AgentContext
+        Uses the RulesReferee's rejection message directly without calling Narrator.
+        """
+        self.logger.info(
+            "User prompt disqualified",
+            session_id=session.session_id,
+            turn_number=turn_number,
+            reason=validation_result.reason,
+        )
 
-            context = AgentContext(
-                player_command=player_command,
-                session_state={
-                    **session.state,
-                    "mode": "disqualification",
-                    "disqualification_reason": validation_result.reason,
-                    "alternative_suggestions": scene_plan.alternative_suggestions,
-                },
-                retrieval_results=[],
-                previous_turns=session.state.get("memory", []),
-            )
+        # Build disqualification message from RulesReferee validation
+        disqualification_content = f"Your action doesn't fit this world.\n\n{validation_result.reason}"
 
-            # Execute narrator
-            agent_start = time.time()
-            agent_output = narrator.process(context)
-            agent_duration = time.time() - agent_start
+        # Add alternative suggestions if available
+        if scene_plan.alternative_suggestions:
+            disqualification_content += f"\n\nTry: {', '.join(scene_plan.alternative_suggestions)}"
 
-            # Record successful agent call
-            if status_module:
-                status_module.record_agent_call("narrator", True, agent_duration)
-
-            disqualification_msg = {
-                "content": agent_output.content,
-                "citations": agent_output.citations,
-                "reasoning": agent_output.reasoning,
-                "metadata": agent_output.metadata,
-            }
-
-        progress.agents_completed.append("narrator")
+        disqualification_msg = {
+            "content": disqualification_content,
+            "citations": validation_result.citations,
+            "reasoning": validation_result.reason,
+            "metadata": {
+                "source": "rules_referee",
+                "disqualification_type": "user_prompt",
+            },
+        }
 
         # Update session
         session.losses += 1
@@ -984,57 +958,33 @@ class GameLoop:
         scene_plan: ScenePlanOutput,
         progress: TurnProgress,
     ) -> TurnResult:
-        """Handle agent response disqualification - player wins."""
-        progress.phase = TurnPhase.NARRATOR_CORRECTION
-        progress.current_agent = "narrator"
-        progress.message = "Agent response disqualified - generating correction"
-        self._update_progress(progress)
+        """Handle agent response disqualification - player wins.
 
-        narrator = self.orchestrator.agents.get("narrator")
-        if not narrator or not narrator.config.enabled:
-            # Fallback message
-            correction_msg = {
-                "content": (
-                    f"[Agent response rejected: {validation_result.reason}]\n\n"
-                    f"Original response: {agent_output['content'][:200]}..."
-                ),
-                "citations": [],
-                "reasoning": "Narrator unavailable for correction",
-                "metadata": {},
-            }
-        else:
-            # Create context for correction
-            from .base_agent import AgentContext
+        Uses the RulesReferee's rejection message directly without calling Narrator.
+        """
+        self.logger.info(
+            "Agent response disqualified",
+            session_id=session.session_id,
+            turn_number=turn_number,
+            reason=validation_result.reason,
+        )
 
-            context = AgentContext(
-                player_command=player_command,
-                session_state={
-                    **session.state,
-                    "mode": "correction",
-                    "agent_response": agent_output["content"],
-                    "disqualification_reason": validation_result.reason,
-                },
-                retrieval_results=[],
-                previous_turns=session.state.get("memory", []),
-            )
+        # Build correction message from RulesReferee validation
+        # Show the agent's invalid response followed by the reason it was rejected
+        correction_content = (
+            f"The agent's response contradicts the established facts.\n\n"
+            f"{validation_result.reason}"
+        )
 
-            # Execute narrator
-            agent_start = time.time()
-            narrator_output = narrator.process(context)
-            agent_duration = time.time() - agent_start
-
-            # Record successful agent call
-            if status_module:
-                status_module.record_agent_call("narrator", True, agent_duration)
-
-            correction_msg = {
-                "content": narrator_output.content,
-                "citations": narrator_output.citations,
-                "reasoning": narrator_output.reasoning,
-                "metadata": narrator_output.metadata,
-            }
-
-        progress.agents_completed.append("narrator")
+        correction_msg = {
+            "content": correction_content,
+            "citations": validation_result.citations,
+            "reasoning": validation_result.reason,
+            "metadata": {
+                "source": "rules_referee",
+                "disqualification_type": "agent_response",
+            },
+        }
 
         # Update session
         session.wins += 1
