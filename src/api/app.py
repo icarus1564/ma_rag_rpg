@@ -75,23 +75,111 @@ async def lifespan(app: FastAPI):
         logger.info("Initializing retrieval manager")
         _retrieval_manager = RetrievalManager.from_config(_app_config)
 
-        # Try to load indices if they exist
+        # Load or auto-initialize indices
         try:
             bm25_path = Path(_app_config.ingestion.bm25_index_path)
             metadata_path = Path(_app_config.ingestion.chunk_metadata_path)
+            corpus_path = Path(_app_config.ingestion.corpus_path)
+            collection_name = _app_config.vector_db.get_collection_name()
 
+            # Check if indices exist
+            indices_exist = bm25_path.exists() and metadata_path.exists()
+
+            # Check if vector DB collection exists
+            vector_db_exists = False
+            try:
+                if _retrieval_manager.hybrid_retriever:
+                    vector_db = _retrieval_manager.hybrid_retriever.vector_retriever.vector_db
+                    vector_db_exists = vector_db.collection_exists(collection_name)
+            except Exception:
+                pass
+
+            # If indices or vector DB don't exist, run auto-initialization
+            if not indices_exist or not vector_db_exists:
+                logger.warning(
+                    "Indices not found - running auto-initialization",
+                    bm25_exists=bm25_path.exists(),
+                    metadata_exists=metadata_path.exists(),
+                    vector_db_exists=vector_db_exists
+                )
+
+                # Check if corpus file exists
+                if not corpus_path.exists():
+                    logger.error(
+                        "Cannot auto-initialize: corpus file not found",
+                        corpus_path=str(corpus_path)
+                    )
+                    raise FileNotFoundError(f"Corpus file not found: {corpus_path}")
+
+                # Run ingestion
+                logger.info("Starting auto-ingestion", corpus_path=str(corpus_path))
+
+                from ..ingestion.pipeline import IngestionPipeline
+                from ..ingestion.chunker import Chunker
+                from ..ingestion.bm25_indexer import BM25Indexer
+                from ..ingestion.embedder import Embedder
+                from ..ingestion.metadata_store import MetadataStore
+                from ..rag.vector_db.factory import VectorDBFactory
+
+                # Initialize ingestion components
+                chunker = Chunker()
+                bm25_indexer = BM25Indexer()
+                metadata_store = MetadataStore()
+                embedder = Embedder(model_name=_app_config.ingestion.embedding_model)
+
+                # Get vector DB from retrieval manager
+                if _retrieval_manager.hybrid_retriever:
+                    vector_db = _retrieval_manager.hybrid_retriever.vector_retriever.vector_db
+                else:
+                    # Fallback: create new vector DB
+                    vector_db_config = (
+                        _app_config.vector_db.chroma
+                        if _app_config.vector_db.provider == "chroma"
+                        else _app_config.vector_db.pinecone
+                    )
+                    vector_db = VectorDBFactory.create(
+                        _app_config.vector_db.provider, vector_db_config
+                    )
+
+                # Create pipeline
+                pipeline = IngestionPipeline(
+                    chunker=chunker,
+                    bm25_indexer=bm25_indexer,
+                    embedder=embedder,
+                    vector_db=vector_db,
+                    metadata_store=metadata_store,
+                )
+
+                # Run ingestion with explicit paths from config
+                result = pipeline.ingest(
+                    corpus_path=str(corpus_path),
+                    collection_name=collection_name,
+                    overwrite=True,
+                    chunk_size=_app_config.ingestion.chunk_size,
+                    chunk_overlap=_app_config.ingestion.chunk_overlap,
+                    bm25_index_path=str(bm25_path),
+                    metadata_path=str(metadata_path),
+                )
+
+                logger.info(
+                    "Auto-ingestion complete",
+                    total_chunks=result.total_chunks,
+                    duration_seconds=result.duration_seconds,
+                )
+
+            # Now load the indices
             if bm25_path.exists() and metadata_path.exists():
-                logger.info("Loading existing indices")
+                logger.info("Loading indices")
                 _retrieval_manager.load_indices(
-                    str(bm25_path),
-                    str(metadata_path),
-                    _app_config.vector_db.get_collection_name()
+                    str(bm25_path), str(metadata_path), collection_name
                 )
                 logger.info("Indices loaded successfully")
             else:
-                logger.warning("No existing indices found - run ingestion first")
+                logger.error("Indices still not found after auto-initialization")
+
         except Exception as e:
-            logger.warning(f"Could not load indices: {e}")
+            logger.error(f"Could not initialize indices: {e}", exc_info=True)
+            raise RuntimeError(f"Failed to initialize retrieval indices: {e}") from e
 
         # Initialize session manager
         logger.info("Initializing session manager")

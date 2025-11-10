@@ -172,45 +172,29 @@ async def get_corpus_status():
                 if bm25_retriever.is_loaded():
                     bm25_status = ConnectionStatus.CONNECTED
 
+                    # Extract loaded corpus info from metadata
                     metadata = getattr(bm25_retriever, "metadata", None)
-                    if metadata:
-                        if isinstance(metadata, dict):
-                            metadata_items: Iterable[Any] = metadata.values()
-                        elif isinstance(metadata, Iterable) and not isinstance(metadata, (str, bytes)):
-                            metadata_items = metadata
-                        else:
-                            metadata_items = []
+                    if metadata and isinstance(metadata, dict) and len(metadata) > 0:
+                        # Get first chunk's metadata to extract source
+                        first_chunk_meta = next(iter(metadata.values()), None)
+                        if first_chunk_meta:
+                            # Extract source from ChunkMetadata object or dict
+                            actual_corpus_path = None
+                            if hasattr(first_chunk_meta, "source"):
+                                actual_corpus_path = first_chunk_meta.source
+                            elif isinstance(first_chunk_meta, dict):
+                                actual_corpus_path = first_chunk_meta.get("source")
 
-                        def _extract_source(meta: Any) -> Optional[str]:
-                            if hasattr(meta, "source"):
-                                source_value = getattr(meta, "source")
-                                return str(source_value) if source_value else None
-                            if isinstance(meta, dict):
-                                source_value = meta.get("source")
-                                return str(source_value) if source_value else None
-                            return None
-
-                        sources = (
-                            {
-                                source
-                                for source in (
-                                    _extract_source(meta)
-                                    for meta in metadata_items
-                                )
-                                if source
-                            }
-                            if metadata_items
-                            else set()
-                        )
-
-                        if sources:
-                            loaded_corpora = sorted(sources)
-                            if len(sources) == 1:
-                                corpus_path = loaded_corpora[0]
+                            if actual_corpus_path:
+                                # Override config values with actual loaded corpus
+                                corpus_path = str(actual_corpus_path)
                                 corpus_name = os.path.basename(corpus_path)
-                            else:
-                                corpus_name = ", ".join(
-                                    sorted(os.path.basename(path) for path in sources)
+                                loaded_corpora = [corpus_path]
+
+                                logger.debug(
+                                    "Extracted loaded corpus from metadata",
+                                    corpus_name=corpus_name,
+                                    corpus_path=corpus_path
                                 )
                 else:
                     bm25_status = ConnectionStatus.DISCONNECTED
@@ -443,6 +427,7 @@ async def get_config():
             },
             "ingestion": {
                 "corpus_path": _app_config.ingestion.corpus_path,
+                "corpus_filename": os.path.basename(_app_config.ingestion.corpus_path),
                 "chunk_size": _app_config.ingestion.chunk_size,
                 "chunk_overlap": _app_config.ingestion.chunk_overlap,
                 "embedding_model": _app_config.ingestion.embedding_model,

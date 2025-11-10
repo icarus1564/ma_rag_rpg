@@ -55,6 +55,10 @@ function renderConfigTab() {
                 <h5 class="mb-0"><i class="fas fa-book"></i> Corpus Management</h5>
             </div>
             <div class="card-body">
+                <div class="alert alert-secondary mb-3">
+                    <strong><i class="fas fa-info-circle"></i> Currently Loaded:</strong>
+                    <span id="currentCorpusDisplay" class="ms-2">Loading...</span>
+                </div>
                 <div class="mb-3">
                     <label for="corpusFileInput" class="form-label">Upload New Corpus File:</label>
                     <input type="file" id="corpusFileInput" class="form-control" accept=".txt">
@@ -160,14 +164,22 @@ async function loadConfigOverview() {
                 <p class="mb-0"><strong>TTL:</strong> ${config.session.session_ttl_seconds}s</p>
             </div>
             <div class="col-md-6 mt-3">
-                <h6>Vector Database</h6>
+                <h6>Vector Database & Corpus</h6>
                 <p class="mb-1"><strong>Provider:</strong> ${escapeHtml(config.vector_db.provider)}</p>
-                <p class="mb-0"><strong>Collection:</strong> ${escapeHtml(config.vector_db.collection_name)}</p>
+                <p class="mb-1"><strong>Collection:</strong> ${escapeHtml(config.vector_db.collection_name)}</p>
+                <p class="mb-0"><strong>Corpus:</strong> ${escapeHtml(config.ingestion.corpus_filename || config.ingestion.corpus_path || 'Not loaded')}</p>
             </div>
         `;
 
         // Insert session info after retrieval settings
         retrievalSettings.parentElement.parentElement.innerHTML += sessionInfo;
+
+        // Update current corpus display
+        const currentCorpusDisplay = document.getElementById('currentCorpusDisplay');
+        if (currentCorpusDisplay && config.ingestion) {
+            const corpusName = config.ingestion.corpus_filename || config.ingestion.corpus_path || 'None';
+            currentCorpusDisplay.innerHTML = `<code>${escapeHtml(corpusName)}</code>`;
+        }
 
     } catch (error) {
         console.error('Failed to load config overview:', error);

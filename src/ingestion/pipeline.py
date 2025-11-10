@@ -62,10 +62,12 @@ class IngestionPipeline:
         overwrite: bool = False,
         chunk_size: int = 500,
         chunk_overlap: int = 50,
-        indices_dir: Optional[str] = None
+        indices_dir: Optional[str] = None,
+        bm25_index_path: Optional[str] = None,
+        metadata_path: Optional[str] = None
     ) -> IngestionResult:
         """Run full ingestion pipeline.
-        
+
         Args:
             corpus_path: Path to corpus text file
             collection_name: Name of vector DB collection
@@ -73,13 +75,15 @@ class IngestionPipeline:
             chunk_size: Target chunk size
             chunk_overlap: Overlap between chunks
             indices_dir: Optional directory for storing indices (defaults to "data/indices")
-            
+            bm25_index_path: Optional explicit path for BM25 index (overrides default naming)
+            metadata_path: Optional explicit path for metadata (overrides default naming)
+
         Returns:
             IngestionResult with statistics
         """
         start_time = time.time()
         logger.info("Starting ingestion pipeline", corpus_path=corpus_path, collection=collection_name)
-        
+
         # Determine indices directory
         indices_base = Path(indices_dir) if indices_dir else Path("data/indices")
         indices_base.mkdir(parents=True, exist_ok=True)
@@ -110,9 +114,14 @@ class IngestionPipeline:
         # 3. Build BM25 index
         chunk_texts = [chunk.text for chunk in chunks]
         bm25_index = self.bm25_indexer.build_index(chunk_texts)
-        
-        # Save BM25 index
-        bm25_index_path = str(indices_base / f"bm25_index_{collection_name}.pkl")
+
+        # Save BM25 index - use explicit path if provided, otherwise use collection-suffixed name
+        if not bm25_index_path:
+            bm25_index_path = str(indices_base / f"bm25_index_{collection_name}.pkl")
+        else:
+            # Ensure parent directory exists for explicit path
+            Path(bm25_index_path).parent.mkdir(parents=True, exist_ok=True)
+
         self.bm25_indexer.save_index(bm25_index, bm25_index_path)
         logger.info("BM25 index built and saved", path=bm25_index_path)
         
@@ -163,8 +172,14 @@ class IngestionPipeline:
                 source=corpus_path,
                 additional_metadata=chunk.metadata
             ))
-        
-        metadata_path = str(indices_base / f"chunks_{collection_name}.json")
+
+        # Save metadata - use explicit path if provided, otherwise use collection-suffixed name
+        if not metadata_path:
+            metadata_path = str(indices_base / f"chunks_{collection_name}.json")
+        else:
+            # Ensure parent directory exists for explicit path
+            Path(metadata_path).parent.mkdir(parents=True, exist_ok=True)
+
         self.metadata_store.save_metadata(chunk_metadata_list, metadata_path)
         logger.info("Metadata saved", path=metadata_path)
         

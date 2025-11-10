@@ -54,10 +54,24 @@ def mock_retrieval_manager():
     """Create mock retrieval manager."""
     manager = Mock(spec=RetrievalManager)
 
-    # Mock BM25 retriever
+    # Mock BM25 retriever with metadata
     bm25_retriever = Mock()
     bm25_retriever.is_loaded.return_value = True
     bm25_retriever.chunks = ["chunk1", "chunk2", "chunk3"]
+
+    # Add metadata with source information
+    from src.ingestion.metadata_store import ChunkMetadata
+    bm25_retriever.metadata = {
+        "chunk_0": ChunkMetadata(
+            chunk_id="chunk_0",
+            text="test chunk",
+            start_pos=0,
+            end_pos=10,
+            chunk_index=0,
+            source="data/test_data/test_corpus2.txt",
+            additional_metadata={}
+        )
+    }
 
     # Mock vector retriever
     vector_retriever = Mock()
@@ -82,10 +96,18 @@ def mock_app_config():
     """Create mock app config."""
     config = Mock()
 
+    # Agents config (empty dict for iteration)
+    config.agents = {}
+
     # Ingestion config
     config.ingestion = Mock()
     config.ingestion.corpus_path = "data/test_data/test_corpus2.txt"
     config.ingestion.embedding_model = "sentence-transformers/all-MiniLM-L6-v2"
+    config.ingestion.chunk_size = 500
+    config.ingestion.chunk_overlap = 50
+    config.ingestion.bm25_index_path = "data/indices/bm25_index.pkl"
+    config.ingestion.vector_index_path = "data/indices/vector_db"
+    config.ingestion.chunk_metadata_path = "data/indices/chunks.json"
 
     # Vector DB config
     config.vector_db = Mock()
@@ -94,8 +116,25 @@ def mock_app_config():
 
     # Retrieval config
     config.retrieval = Mock()
+    config.retrieval.bm25_weight = 0.5
+    config.retrieval.vector_weight = 0.5
+    config.retrieval.chunk_size = 500
+    config.retrieval.chunk_overlap = 50
+    config.retrieval.top_k = 5
     config.retrieval.fusion_strategy = "rrf"
+    config.retrieval.rrf_k = 60
     config.retrieval.query_rewriter_enabled = True
+
+    # Session config
+    config.session = Mock()
+    config.session.memory_window_size = 10
+    config.session.max_tokens = 4096
+    config.session.sliding_window = True
+
+    # API config
+    config.api_host = "localhost"
+    config.api_port = 8000
+    config.log_level = "INFO"
 
     return config
 
@@ -138,9 +177,10 @@ class TestStatusEndpoints:
         assert response.status_code == 200
         data = response.json()
 
+        # Verify corpus filename is extracted from metadata
         assert data["corpus_name"] == "test_corpus2.txt"
         assert data["corpus_path"] == "data/test_data/test_corpus2.txt"
-        assert data["loaded_corpora"] is None
+        assert data["loaded_corpora"] == ["data/test_data/test_corpus2.txt"]
         assert data["total_chunks"] == 3  # From mock BM25 retriever
         assert data["bm25_status"] == "connected"
         assert data["vector_db_status"] == "connected"
@@ -149,6 +189,37 @@ class TestStatusEndpoints:
         assert data["total_documents"] == 100
         assert data["embedding_model"] == "sentence-transformers/all-MiniLM-L6-v2"
         assert data["embedding_dimension"] == 384  # MiniLM dimension
+
+    def test_get_corpus_status_with_metadata(self, client):
+        """Test corpus status extracts filename from metadata correctly."""
+        response = client.get("/api/status/corpus")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify corpus info is extracted from BM25 metadata
+        assert "corpus_name" in data
+        assert "corpus_path" in data
+        assert "loaded_corpora" in data
+
+        # Verify corpus_name matches the basename of the path in metadata
+        assert data["corpus_name"] == "test_corpus2.txt"
+        assert data["loaded_corpora"] == ["data/test_data/test_corpus2.txt"]
+
+    def test_get_corpus_status_without_metadata(self, client, mock_retrieval_manager):
+        """Test corpus status falls back to config when metadata is not available."""
+        # Remove metadata from BM25 retriever
+        mock_retrieval_manager.hybrid_retriever.bm25_retriever.metadata = None
+
+        response = client.get("/api/status/corpus")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Should fall back to config path
+        assert data["corpus_name"] == "test_corpus2.txt"
+        assert data["corpus_path"] == "data/test_data/test_corpus2.txt"
+        assert data["loaded_corpora"] is None  # No metadata available
 
     def test_get_corpus_status_bm25_not_loaded(self, client, mock_retrieval_manager):
         """Test corpus status when BM25 index is not loaded."""
@@ -309,3 +380,38 @@ class TestStatusEndpoints:
         disabled_status = next((a for a in data if a["agent_name"] == "disabled_agent"), None)
         assert disabled_status is not None
         assert disabled_status["enabled"] is False
+
+    def test_get_config(self):
+        """Test getting application configuration includes corpus_filename."""
+        # Create a minimal real config just for this test
+        from src.core.config import AppConfig
+        test_config = AppConfig()
+
+        # Set test dependencies with real config
+        status.set_status_dependencies(
+            Mock(spec=SessionManager),
+            Mock(spec=GameOrchestrator, agents={}),
+            Mock(spec=RetrievalManager),
+            test_config
+        )
+
+        client = TestClient(app)
+        response = client.get("/api/status/config")
+
+        assert response.status_code == 200
+        data = response.json()
+
+        # Verify structure
+        assert "agents" in data
+        assert "retrieval" in data
+        assert "session" in data
+        assert "vector_db" in data
+        assert "ingestion" in data
+
+        # Verify ingestion config includes corpus_filename
+        assert "corpus_path" in data["ingestion"]
+        assert "corpus_filename" in data["ingestion"]
+
+        # Verify corpus_filename is the basename of corpus_path
+        import os
+        assert data["ingestion"]["corpus_filename"] == os.path.basename(data["ingestion"]["corpus_path"])
