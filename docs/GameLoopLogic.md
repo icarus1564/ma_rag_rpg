@@ -37,6 +37,8 @@
 
 #IMPLEMENTATION NOTES:
 - User prompt disqualification uses RulesReferee message directly, no Narrator call needed
+- Agent response disqualification also uses RulesReferee message directly, no Narrator call needed
 - This simplifies the flow and ensures the disqualification reason is consistent with the validation result
-- The metadata includes disqualification_reason and alternative_suggestions for the UI to display 
+- The metadata includes disqualification_reason and original_agent_response (for agent disqualification) or alternative_suggestions (for user disqualification) for the UI to display
+- Both disqualification types now have metadata indicating source="rules_referee" and disqualification_type="user_prompt" or "agent_response" 
 
