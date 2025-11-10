@@ -12,6 +12,8 @@ from ..schemas.game_schemas import (
     GameStateResponse,
     AgentOutput,
     TurnMetadata,
+    ValidationResult,
+    ScenePlan,
 )
 from src.core.session_manager import SessionManager
 from src.core.game_loop import GameLoop, TurnProgress
@@ -124,6 +126,12 @@ async def process_turn(request: TurnRequest):
             scene_planner_output=_convert_agent_output(result.scene_planner_output),
             npc_output=_convert_agent_output(result.npc_output),
             rules_validation=_convert_agent_output(result.rules_validation),
+            user_validation=_convert_validation_result(result.user_validation),
+            agent_validation=_convert_validation_result(result.agent_validation),
+            scene_plan=_convert_scene_plan(result.scene_plan),
+            player_wins=result.player_wins,
+            player_loses=result.player_loses,
+            turn_ended_early=result.turn_ended_early,
             metadata=TurnMetadata(**result.metadata),
             duration_seconds=result.duration_seconds,
             success=result.success,
@@ -285,4 +293,60 @@ def _convert_agent_output(output: Dict[str, Any] | None) -> AgentOutput | None:
         execution_time=output.get("execution_time"),
         error=output.get("error", False),
         error_message=output.get("error_message"),
+    )
+
+
+def _convert_validation_result(validation) -> ValidationResult | None:
+    """Convert validation result to schema."""
+    if validation is None:
+        return None
+
+    # Handle if it's already a ValidationResult object from game_loop
+    if hasattr(validation, 'approved'):
+        return ValidationResult(
+            approved=validation.approved,
+            reason=validation.reason,
+            confidence=validation.confidence,
+            relevant_chunks=validation.relevant_chunks,
+            suggestions=validation.suggestions,
+            citations=validation.citations,
+        )
+
+    # Handle if it's a dict
+    return ValidationResult(
+        approved=validation.get("approved", True),
+        reason=validation.get("reason", ""),
+        confidence=validation.get("confidence", 0.5),
+        relevant_chunks=validation.get("relevant_chunks", []),
+        suggestions=validation.get("suggestions"),
+        citations=validation.get("citations", []),
+    )
+
+
+def _convert_scene_plan(scene_plan) -> ScenePlan | None:
+    """Convert scene plan to schema."""
+    if scene_plan is None:
+        return None
+
+    # Handle if it's already a ScenePlanOutput object from game_loop
+    if hasattr(scene_plan, 'next_action'):
+        return ScenePlan(
+            next_action=scene_plan.next_action,
+            target=scene_plan.target,
+            reasoning=scene_plan.reasoning,
+            retrieval_quality=scene_plan.retrieval_quality,
+            validation_status=scene_plan.validation_status,
+            alternative_suggestions=scene_plan.alternative_suggestions,
+            metadata=scene_plan.metadata,
+        )
+
+    # Handle if it's a dict
+    return ScenePlan(
+        next_action=scene_plan.get("next_action", "narrator_scene"),
+        target=scene_plan.get("target"),
+        reasoning=scene_plan.get("reasoning", ""),
+        retrieval_quality=scene_plan.get("retrieval_quality", 0.5),
+        validation_status=scene_plan.get("validation_status", "unknown"),
+        alternative_suggestions=scene_plan.get("alternative_suggestions"),
+        metadata=scene_plan.get("metadata", {}),
     )

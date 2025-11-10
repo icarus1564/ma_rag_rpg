@@ -77,6 +77,42 @@ class TurnMetadata(BaseModel):
     timestamp: str = Field(..., description="Turn completion timestamp")
 
 
+class ValidationResult(BaseModel):
+    """Result from validation."""
+    approved: bool = Field(..., description="Whether validation passed")
+    reason: str = Field(..., description="Reason for validation result")
+    confidence: float = Field(..., description="Confidence score 0.0-1.0")
+    relevant_chunks: List[str] = Field(
+        default_factory=list,
+        description="Chunk IDs used for validation"
+    )
+    suggestions: Optional[List[str]] = Field(
+        None,
+        description="Alternative suggestions if rejected"
+    )
+    citations: List[int] = Field(
+        default_factory=list,
+        description="Citation indices"
+    )
+
+
+class ScenePlan(BaseModel):
+    """Scene planning output."""
+    next_action: str = Field(..., description="Next action to take")
+    target: Optional[str] = Field(None, description="Target NPC if applicable")
+    reasoning: str = Field(..., description="Reasoning for the decision")
+    retrieval_quality: float = Field(..., description="Quality assessment of retrieval")
+    validation_status: str = Field(..., description="Validation status")
+    alternative_suggestions: Optional[List[str]] = Field(
+        None,
+        description="Alternative suggestions if disqualified"
+    )
+    metadata: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Additional metadata"
+    )
+
+
 class TurnResponse(BaseModel):
     """Response from processing a turn."""
     turn_number: int = Field(..., description="Turn number in the session")
@@ -98,6 +134,33 @@ class TurnResponse(BaseModel):
         None,
         description="Output from the Rules Referee agent"
     )
+
+    # New fields from redesigned game loop
+    user_validation: Optional[ValidationResult] = Field(
+        None,
+        description="User prompt validation result"
+    )
+    agent_validation: Optional[ValidationResult] = Field(
+        None,
+        description="Agent response validation result"
+    )
+    scene_plan: Optional[ScenePlan] = Field(
+        None,
+        description="Scene planning output"
+    )
+    player_wins: bool = Field(
+        False,
+        description="Whether player wins (agent disqualified)"
+    )
+    player_loses: bool = Field(
+        False,
+        description="Whether player loses (prompt disqualified)"
+    )
+    turn_ended_early: bool = Field(
+        False,
+        description="Whether turn ended at validation phase"
+    )
+
     metadata: TurnMetadata = Field(..., description="Turn metadata")
     duration_seconds: float = Field(..., description="Turn processing time")
     success: bool = Field(..., description="Whether the turn succeeded")

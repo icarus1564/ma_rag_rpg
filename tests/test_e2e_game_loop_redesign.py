@@ -295,6 +295,13 @@ class TestE2EGameLoopRedesign:
         assert game_session.losses == 1
         assert game_session.wins == 0
 
+        # Check metadata structure (for API compatibility)
+        assert "timestamp" in result.metadata, "metadata should include timestamp"
+        assert "retrieval" in result.metadata, "metadata should include retrieval"
+        assert "agents_executed" in result.metadata, "metadata should include agents_executed"
+        assert "disqualification_reason" in result.metadata
+        assert "alternative_suggestions" in result.metadata
+
     def test_e2e_agent_disqualification_player_wins(self, mock_retrieval_manager, game_session):
         """Test agent response disqualification - player wins."""
 
@@ -413,6 +420,13 @@ class TestE2EGameLoopRedesign:
         # Check session state
         assert game_session.wins == 1
         assert game_session.losses == 0
+
+        # Check metadata structure (for API compatibility)
+        assert "timestamp" in result.metadata, "metadata should include timestamp"
+        assert "retrieval" in result.metadata, "metadata should include retrieval"
+        assert "agents_executed" in result.metadata, "metadata should include agents_executed"
+        assert "original_agent_response" in result.metadata
+        assert "disqualification_reason" in result.metadata
 
     def test_e2e_scene_description_path(self, mock_retrieval_manager, game_session):
         """Test scene description with narrator-only interaction."""

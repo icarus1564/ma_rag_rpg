@@ -486,6 +486,120 @@ function displayTurnResults(turnResult) {
         turnNumber: turnNumber,
     });
 
+    // Check for player win/loss status - handle as game-ending events
+    if (turnResult.player_loses) {
+        // Display large red banner for player loss
+        appendToGameOutput({
+            type: 'player_loses_banner',
+            content: 'Player Loses!',
+        });
+
+        // Display disqualification heading with reason
+        let disqualificationContent = 'You\'re disqualified!';
+        if (turnResult.user_validation && turnResult.user_validation.reason) {
+            disqualificationContent += '\n\nReason: ' + turnResult.user_validation.reason;
+        }
+
+        appendToGameOutput({
+            type: 'player_loses',
+            content: disqualificationContent,
+            validation: turnResult.user_validation,
+        });
+
+        // Display the disqualification message from narrator (if available)
+        if (turnResult.narrator_output && turnResult.narrator_output.content) {
+            appendToGameOutput({
+                type: 'disqualification_message',
+                content: turnResult.narrator_output.content,
+                citations: turnResult.narrator_output.citations,
+            });
+        } else if (turnResult.metadata?.disqualification_reason) {
+            // Fallback to metadata if narrator output not available
+            appendToGameOutput({
+                type: 'disqualification_message',
+                content: turnResult.metadata.disqualification_reason,
+                citations: [],
+            });
+        }
+
+        // Show game over message
+        appendToGameOutput({
+            type: 'game_over',
+            content: 'Game Over! Click \'New Game\' if you\'d like to play again.',
+        });
+
+        // Disable input - game is over
+        updateInputState(false);
+        document.getElementById('submitTurnBtn').disabled = true;
+
+        return; // Don't display other outputs
+    } else if (turnResult.player_wins) {
+        // Display large green banner for player win
+        appendToGameOutput({
+            type: 'player_wins_banner',
+            content: 'Player Wins!',
+        });
+
+        // Get agent name from NPC output if available
+        let agentName = 'Agent';
+        if (turnResult.npc_output?.metadata?.npc_name) {
+            agentName = turnResult.npc_output.metadata.npc_name;
+        } else if (turnResult.narrator_output) {
+            agentName = 'Narrator';
+        }
+
+        // Display disqualification heading with reason
+        let disqualificationContent = `${agentName} is disqualified!`;
+        if (turnResult.agent_validation && turnResult.agent_validation.reason) {
+            disqualificationContent += '\n\nReason: ' + turnResult.agent_validation.reason;
+        }
+
+        appendToGameOutput({
+            type: 'player_wins',
+            content: disqualificationContent,
+            validation: turnResult.agent_validation,
+        });
+
+        // Display the original invalid response if available in metadata
+        if (turnResult.metadata?.original_agent_response) {
+            appendToGameOutput({
+                type: 'invalid_response',
+                content: 'Agent attempted to say: "' + turnResult.metadata.original_agent_response + '"',
+                reason: turnResult.agent_validation?.reason || 'Invalid response',
+            });
+        }
+
+        // Display the correction message from narrator (if available)
+        if (turnResult.narrator_output && turnResult.narrator_output.content) {
+            appendToGameOutput({
+                type: 'correction_message',
+                content: turnResult.narrator_output.content,
+                citations: turnResult.narrator_output.citations,
+            });
+        } else if (turnResult.metadata?.disqualification_reason) {
+            // Fallback to metadata if narrator output not available
+            appendToGameOutput({
+                type: 'correction_message',
+                content: turnResult.metadata.disqualification_reason,
+                citations: [],
+            });
+        }
+
+        // Show game over message
+        appendToGameOutput({
+            type: 'game_over',
+            content: 'Game Over! Click \'New Game\' if you\'d like to play again.',
+        });
+
+        // Disable input - game is over
+        updateInputState(false);
+        document.getElementById('submitTurnBtn').disabled = true;
+
+        return; // Don't display other outputs
+    }
+
+    // Normal game flow - no disqualification
+
     // Narrator output
     if (turnResult.narrator_output) {
         appendAgentOutput('Narrator', turnResult.narrator_output, 'narrator');
@@ -496,14 +610,23 @@ function displayTurnResults(turnResult) {
         appendAgentOutput('Scene Planner', turnResult.scene_planner_output, 'scene-planner');
     }
 
-    // NPC Manager output
-    if (turnResult.npc_manager_output) {
-        appendAgentOutput('NPC Manager', turnResult.npc_manager_output, 'npc-manager');
+    // NPC output
+    if (turnResult.npc_output) {
+        const npcName = turnResult.npc_output.metadata?.npc_name || 'NPC';
+        appendAgentOutput(npcName, turnResult.npc_output, 'npc-manager');
     }
 
-    // Rules Referee output
-    if (turnResult.rules_referee_output) {
-        appendAgentOutput('Rules Referee', turnResult.rules_referee_output, 'rules-referee');
+    // Rules Referee output (legacy)
+    if (turnResult.rules_validation) {
+        appendAgentOutput('Rules Referee', turnResult.rules_validation, 'rules-referee');
+    }
+
+    // Display validation results if present (for debugging/transparency)
+    if (turnResult.user_validation && !turnResult.player_loses) {
+        appendValidationInfo('User Prompt Validation', turnResult.user_validation);
+    }
+    if (turnResult.agent_validation && !turnResult.player_wins) {
+        appendValidationInfo('Agent Response Validation', turnResult.agent_validation);
     }
 
     // Scroll to bottom
@@ -584,6 +707,113 @@ function appendToGameOutput(data) {
             </div>
         `;
         gameOutput.insertAdjacentHTML('beforeend', html);
+    } else if (data.type === 'player_loses_banner') {
+        const html = `
+            <div class="alert alert-danger text-center" style="font-size: 1.5rem; font-weight: bold; padding: 1.5rem; margin: 1rem 0;">
+                <i class="fas fa-times-circle"></i> ${escapeHtml(data.content)}
+            </div>
+        `;
+        gameOutput.insertAdjacentHTML('beforeend', html);
+    } else if (data.type === 'player_wins_banner') {
+        const html = `
+            <div class="alert alert-success text-center" style="font-size: 1.5rem; font-weight: bold; padding: 1.5rem; margin: 1rem 0;">
+                <i class="fas fa-trophy"></i> ${escapeHtml(data.content)}
+            </div>
+        `;
+        gameOutput.insertAdjacentHTML('beforeend', html);
+    } else if (data.type === 'player_loses') {
+        let suggestionsHtml = '';
+        if (data.validation && data.validation.suggestions && data.validation.suggestions.length > 0) {
+            const suggestionsList = data.validation.suggestions.map(s => `<li>${escapeHtml(s)}</li>`).join('');
+            suggestionsHtml = `
+                <div class="mt-2">
+                    <strong>Try instead:</strong>
+                    <ul class="mb-0">${suggestionsList}</ul>
+                </div>
+            `;
+        }
+        const html = `
+            <div class="alert alert-warning">
+                <i class="fas fa-ban"></i> <strong>${escapeHtml(data.content)}</strong>
+                ${data.validation ? `<p class="mb-0 mt-2">${escapeHtml(data.validation.reason)}</p>` : ''}
+                ${suggestionsHtml}
+            </div>
+        `;
+        gameOutput.insertAdjacentHTML('beforeend', html);
+    } else if (data.type === 'player_wins') {
+        const html = `
+            <div class="alert alert-success">
+                <i class="fas fa-trophy"></i> <strong>${escapeHtml(data.content)}</strong>
+                ${data.validation ? `<p class="mb-0 mt-2">Reason: ${escapeHtml(data.validation.reason)}</p>` : ''}
+            </div>
+        `;
+        gameOutput.insertAdjacentHTML('beforeend', html);
+    } else if (data.type === 'disqualification_message') {
+        let citationsHtml = '';
+        if (data.citations && data.citations.length > 0) {
+            const citationsList = data.citations.map(c => `passage_${c}`).join(', ');
+            citationsHtml = `
+                <div class="mt-2 small">
+                    <i class="fas fa-quote-left"></i> Citations: ${citationsList}
+                </div>
+            `;
+        }
+        const html = `
+            <div class="card mb-3 border-warning">
+                <div class="card-body">
+                    <h6 class="card-title text-warning">
+                        <i class="fas fa-exclamation-triangle"></i> Disqualification Explanation
+                    </h6>
+                    <div class="card-text">${escapeHtml(data.content).replace(/\n/g, '<br>')}</div>
+                    ${citationsHtml}
+                </div>
+            </div>
+        `;
+        gameOutput.insertAdjacentHTML('beforeend', html);
+    } else if (data.type === 'invalid_response') {
+        const html = `
+            <div class="card mb-3 border-danger">
+                <div class="card-body">
+                    <h6 class="card-title text-danger">
+                        <i class="fas fa-times-circle"></i> Invalid Agent Response (Rejected)
+                    </h6>
+                    <div class="card-text text-muted">${escapeHtml(data.content).replace(/\n/g, '<br>')}</div>
+                    <div class="mt-2 small">
+                        <strong>Rejection reason:</strong> ${escapeHtml(data.reason)}
+                    </div>
+                </div>
+            </div>
+        `;
+        gameOutput.insertAdjacentHTML('beforeend', html);
+    } else if (data.type === 'correction_message') {
+        let citationsHtml = '';
+        if (data.citations && data.citations.length > 0) {
+            const citationsList = data.citations.map(c => `passage_${c}`).join(', ');
+            citationsHtml = `
+                <div class="mt-2 small">
+                    <i class="fas fa-quote-left"></i> Citations: ${citationsList}
+                </div>
+            `;
+        }
+        const html = `
+            <div class="card mb-3 border-info">
+                <div class="card-body">
+                    <h6 class="card-title text-info">
+                        <i class="fas fa-info-circle"></i> Correction
+                    </h6>
+                    <div class="card-text">${escapeHtml(data.content).replace(/\n/g, '<br>')}</div>
+                    ${citationsHtml}
+                </div>
+            </div>
+        `;
+        gameOutput.insertAdjacentHTML('beforeend', html);
+    } else if (data.type === 'game_over') {
+        const html = `
+            <div class="alert alert-primary text-center">
+                <h5><i class="fas fa-flag-checkered"></i> ${escapeHtml(data.content)}</h5>
+            </div>
+        `;
+        gameOutput.insertAdjacentHTML('beforeend', html);
     } else if (data.type === 'turn_separator') {
         const html = `
             <div class="turn-separator">
@@ -594,6 +824,33 @@ function appendToGameOutput(data) {
     }
 
     scrollToBottom(gameOutput);
+}
+
+/**
+ * Append validation info to game output
+ * @param {string} title - Validation title
+ * @param {object} validation - Validation data
+ */
+function appendValidationInfo(title, validation) {
+    if (!validation) return;
+
+    const statusClass = validation.approved ? 'success' : 'danger';
+    const statusIcon = validation.approved ? 'check-circle' : 'times-circle';
+    const statusText = validation.approved ? 'Approved' : 'Rejected';
+
+    const html = `
+        <div class="card validation-info mb-3">
+            <div class="card-body">
+                <h6 class="card-title">
+                    <i class="fas fa-${statusIcon} text-${statusClass}"></i> ${title}: ${statusText}
+                </h6>
+                <p class="mb-1"><strong>Reason:</strong> ${escapeHtml(validation.reason)}</p>
+                <p class="mb-0"><strong>Confidence:</strong> ${(validation.confidence * 100).toFixed(0)}%</p>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('gameOutput').insertAdjacentHTML('beforeend', html);
 }
 
 /**

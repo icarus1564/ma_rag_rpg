@@ -966,6 +966,9 @@ class GameLoop:
             metadata={
                 "disqualification_reason": validation_result.reason,
                 "alternative_suggestions": scene_plan.alternative_suggestions,
+                "retrieval": {},
+                "agents_executed": progress.agents_completed,
+                "timestamp": datetime.now().isoformat(),
             },
         )
 
@@ -1054,6 +1057,9 @@ class GameLoop:
             metadata={
                 "original_agent_response": agent_output["content"],
                 "disqualification_reason": validation_result.reason,
+                "retrieval": {},
+                "agents_executed": progress.agents_completed,
+                "timestamp": datetime.now().isoformat(),
             },
         )
 
