@@ -147,7 +147,7 @@ make test-coverage   # Generates htmlcov/index.html
 pytest tests/ -v
 ```
 
-**Expected Result:** ✅ 136 tests passing (zero warnings)
+**Expected Result:** ✅ 168 tests passing (zero warnings)
 
 ### Running the API Server
 
@@ -345,7 +345,7 @@ pytest tests/test_rag_pipeline.py -v      # RAG integration tests
 pytest tests/ --cov=src --cov-report=html
 ```
 
-**Current Test Status:** ✅ 75 tests passing
+**Current Test Status:** ✅ 168 tests passing
 
 ### Code Quality
 
@@ -466,15 +466,15 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
 - ✅ API endpoints for ingestion and search
 - ✅ **Tests:** 21 RAG integration tests passing
 
-### Phase 3: Agent Implementations ✅ COMPLETE
+### Phase 3: Agent Implementations ❌ Known Issues (see below): 
 - ✅ **Narrator Agent**: Scene descriptions grounded in corpus
-- ✅ **Scene Planner Agent**: Story flow and NPC response determination
-- ✅ **NPC Manager Agent**: In-character dialogue with just-in-time persona extraction
-- ✅ **Rules Referee Agent**: Action validation against corpus facts
+- ❌ BUG: **Scene Planner Agent**: Story flow and NPC response determination not working
+- ℹ️ UNKNOWN:**NPC Manager Agent**: In-character dialogue with just-in-time persona extraction not tested due to orchestration/planner issues
+- ❌ BUG: **Rules Referee Agent**: Action validation against corpus facts not working
 - ✅ **Shared Utilities**: Citation mapping, response parsing, prompt templates
-- ✅ **NPC Persona Extractor**: Dynamic character extraction from corpus
-- ✅ **Tests:** 39 agent tests passing (100% coverage)
-- ✅ **Documentation:** Complete design and implementation docs
+- ℹ️ UNKNOWN:**NPC Persona Extractor**: Dynamic character extraction from corpus
+- ℹ️ REQUIRES UPDATE:**Tests:** 39 agent tests passing (100% coverage)
+- ℹ️ REQUIRES UPDATE:**Documentation:** Complete design and implementation docs
 
 **Key Features Implemented:**
 - Corpus-grounded operation with citation tracking
@@ -484,8 +484,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
 - Integration-ready for game loop
 
 ### Phase 4: Game Loop & API ✅ COMPLETE
-- ✅ **GameLoop Class**: Orchestrated turn execution with comprehensive logging
-- ✅ **Progress Tracking**: Real-time progress updates via callbacks
+- ℹ️ REQUIRES UPDATE: **GameLoop Class**: Orchestrated turn execution with comprehensive logging
+- ℹ️ REQUIRES UPDATE: *Progress Tracking**: Real-time progress updates via callbacks not displaying effectively
 - ✅ **Game Endpoints**: `/api/new_game`, `/api/turn`, `/api/state/{session_id}`, `/api/progress/{session_id}`, `/api/session/{session_id}`
 - ✅ **Status Endpoints**: `/api/status/system`, `/api/status/corpus`, `/api/status/agents`, `/api/status/retrieval`
 - ✅ **Health Check**: Enhanced `/health` endpoint with real component status
@@ -527,22 +527,102 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines on:
   - All 145 total tests passing (zero warnings)
   - Server startup verified
   - UI accessibility confirmed
+- ✅ **Logging:**
+  - Comprehensive debug logging added using Decorator pattern
 
-### Phase 6: Metrics & Evaluation ⏳ PLANNED
+### Phase 6: MVP  ⏳ PLANNED
+####Fix ScenePlanner which does not properly orchestrate and gets stuck. ScenePlanner should
+- take in the validated results from the vector / bm25 search and the results from the rules_referee
+- analyze the results and determine whether they indicate a "not good enough" response or engagement with a character or the narrator
+- return the guidance and reasoning to the "orchestrator"
+- Orchestrator: launch the appropriate Agent for next steps (e.g. npc_persona_extractor OR narrator with scene narration OR narrator with disqualification message)
+
+####Fix RulesReferee which does not identify out-of-scope user prompts or agent responses
+- take in the raw response from the vector / bm25 search
+- analyze the response and determine if they indicate a clean match between source (prompt or agent response) and the corpus
+- return whether the match is good enough or not
+- Orechstrator: Results returned to scene_planner to determine next steps
+
+####Verify if PersonaExtractor is working well enough for MVP
+- take in the name of the character to extract
+- query the corpus for N examples of character personality and dialogue
+- build and return persona
+- Orchestrator: launch the npc_manager with the scene search results, user prompt, and persona
+
+####Ensure external LLMs work properly
+- Update to use OpenAI GPT & test
+- Update to use Gemini & test
+
+####Containerize and Deploy
+- Ensure app works on local Linux following quick start guide
+- Ensure app works on local windows following quick start guide
+- Ensure app works on Google Collab following quick start guide
+
+###Stretch Goals / Post MVP
+
+####NPC Persona extractor
+- see extracted personas for NPCs
+- test loop:
+-- give NPC name from corpus
+-- provide ability to see and update system prompt
+-- sytem generages RAG results
+-- see full context sent to LLM
+-- see results containing extracted personality traits/etc
+-- see results of test scenario with NPCManager utilizing persona to respond as the character
+- in game loop: trigger NPCManager to respond using the personality
+
+#### Test and Improve
+
+####Implement ScenePlanner test loop:
+-- see and update system prompt and parameters
+-- provide context with user prompt
+-- retrieve RAG results
+-- see full context sent to ScenePlanner
+-- see output of ScenePlanner
+-- metrics: score the results and store system prompt, parameters, context with score for review
+
+####Implement RulesReferree test loop:
+-- see and update system prompt and parameters
+-- provide input prompt (user or Agent)
+-- RAG input prompt
+-- show full context sent to RulesReferee
+-- see results from RulesReferee
+-- metrics: results scoring against known corpus and input, stored for each permutation of system prompt and parameters
+
+####See and update vectordb and bm25 retriever/search result tuning / hybrid approach with test loop (tweak, search, see results)
+- new page (?) that provides parameter tuning, request query tuning, and results
+- metrics on parameter combinations / versions and results matching expectations or not
+
+####See and update Agent prompts and settings in test loop (tweak, prompt, see results)
+- source system prompt, source data, parameters, response
+- TODO: metrics on source system prompt and parameters with resulting match to expectations
+
+####See full context input sent to Agents with full output per step
+- "log to UI" with expandable input / output UI components
+- separation of system prompt from data in input
+
+####See running status of system as it processes each turn
+- building on the above, logging every step to UI with stages / handoffs / state of process
+
+
+
+
+#### Metrics & Evaluation ⏳ PLANNED
 - ❌ Test data generation
 - ❌ RAG evaluation metrics (Recall@K, MRR)
 - ❌ Parameterized Evaluation framework
 - ❌ Simple Evaluation of Personality Extraction and Model Response (with test corpus data, extraction prompt, and expected results)
 - ❌ Updates to UI Status Tab and Configuration Tab to support viewing metrics, evaluation results, and update evaluation parameters
 
-**Current Test Coverage:** 145 tests passing
+**Current Test Coverage:** 168 tests passing
 - Core framework: 36 tests
 - Agent implementations: 39 tests
-- RAG integration: 21 tests
+- RAG integration: 29 tests (21 pipeline + 7 integration + 1 e2e)
 - GameLoop: 14 tests
 - Game API: 13 tests
-- Status API: 13 tests
+- Status API: 15 tests
 - UI Connectivity: 9 tests
+- Integration: 7 tests
 
 ## Documentation
 
