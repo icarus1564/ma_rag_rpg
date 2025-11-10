@@ -28,7 +28,14 @@ class GameSession:
     created_at: datetime = field(default_factory=datetime.now)
     last_accessed: datetime = field(default_factory=datetime.now)
     state: Dict[str, Any] = field(default_factory=dict)
-    
+
+    # NEW: Persona cache for NPCs
+    persona_cache: Dict[str, Dict[str, Any]] = field(default_factory=dict)
+
+    # NEW: Track turn outcomes
+    wins: int = 0  # Player wins (agent disqualified)
+    losses: int = 0  # Player losses (user disqualified)
+
     def __post_init__(self):
         """Initialize session state."""
         if "current_scene" not in self.state:
@@ -118,6 +125,10 @@ class GameSession:
             "active_npcs": self.state.get("active_npcs", []),
             "memory_size": len(self.state.get("memory", [])),
             "state": self.state,
+            "persona_cache_size": len(self.persona_cache),
+            "persona_cache_npcs": list(self.persona_cache.keys()),
+            "wins": self.wins,
+            "losses": self.losses,
         }
     
     @debug_log_method

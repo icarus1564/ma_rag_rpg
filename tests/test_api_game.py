@@ -252,7 +252,7 @@ class TestGameEndpoints:
         progress = TurnProgress(
             turn_number=1,
             session_id="test-session-123",
-            phase=TurnPhase.NARRATOR,
+            phase=TurnPhase.NARRATOR_SCENE,
             current_agent="narrator",
             message="Processing narrator"
         )
@@ -265,7 +265,7 @@ class TestGameEndpoints:
         data = response.json()
 
         assert data["turn_number"] == 1
-        assert data["phase"] == "narrator"
+        assert data["phase"] == "narrator_scene"
         assert data["current_agent"] == "narrator"
 
     def test_get_turn_progress_no_progress(self, client, mock_game_loop, mock_session_manager):

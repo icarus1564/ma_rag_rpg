@@ -102,10 +102,11 @@ class TestGameLoop:
             player_command="Talk to wizard"
         )
 
-        # Verify retrieval was called
-        mock_retrieval_manager.retrieve.assert_called_once()
-        call_args = mock_retrieval_manager.retrieve.call_args
-        assert "Talk to wizard" in call_args.kwargs["query"]
+        # Verify retrieval was called (twice: user prompt + agent response)
+        assert mock_retrieval_manager.retrieve.call_count >= 2
+        # Check first call (user prompt retrieval)
+        first_call_args = mock_retrieval_manager.retrieve.call_args_list[0]
+        assert "Talk to wizard" in first_call_args.kwargs["query"]
 
     def test_execute_turn_agents_called(self, game_loop, game_session, mock_orchestrator):
         """Test that agents are executed during turn."""
@@ -147,9 +148,9 @@ class TestGameLoop:
 
         # Should have received progress updates
         assert len(progress_updates) > 0
-        # Check that we progressed through the phases
+        # Check that we progressed through the new phases
         assert TurnPhase.STARTED in progress_updates
-        assert TurnPhase.RETRIEVAL in progress_updates
+        assert TurnPhase.USER_RETRIEVAL in progress_updates
         assert TurnPhase.COMPLETED in progress_updates
 
     def test_execute_turn_error_handling(self, game_loop, game_session, mock_retrieval_manager):
@@ -166,7 +167,7 @@ class TestGameLoop:
         assert "Retrieval failed" in result.error
 
     def test_execute_turn_agent_failure_continues(self, game_loop, game_session, mock_orchestrator):
-        """Test that turn continues even if one agent fails."""
+        """Test that turn fails if selected agent (narrator) is unavailable."""
         # Make narrator fail
         narrator = mock_orchestrator.agents["narrator"]
         narrator.process.side_effect = Exception("Narrator failed")
@@ -176,10 +177,10 @@ class TestGameLoop:
             player_command="Test"
         )
 
-        # Turn should still complete
-        assert result.success is True
-        # Other agents should still be called
-        mock_orchestrator.agents["scene_planner"].process.assert_called()
+        # Turn should fail because narrator was selected but failed
+        # (in the new flow, if the selected agent fails, the whole turn fails)
+        assert result.success is False
+        assert "Narrator failed" in result.error
 
     def test_get_progress(self, game_loop, game_session):
         """Test getting progress for a session."""
@@ -222,7 +223,7 @@ class TestGameLoop:
         progress = TurnProgress(
             turn_number=1,
             session_id="test",
-            phase=TurnPhase.NARRATOR,
+            phase=TurnPhase.NARRATOR_SCENE,
             current_agent="narrator",
             message="Processing narrator",
         )
@@ -231,7 +232,7 @@ class TestGameLoop:
 
         assert progress_dict["turn_number"] == 1
         assert progress_dict["session_id"] == "test"
-        assert progress_dict["phase"] == "narrator"
+        assert progress_dict["phase"] == "narrator_scene"
         assert progress_dict["current_agent"] == "narrator"
 
     def test_multiple_turns(self, game_loop, game_session):
@@ -257,9 +258,9 @@ class TestGameLoop:
             player_command="Test"
         )
 
-        assert "retrieval" in result.metadata
-        assert "num_chunks" in result.metadata["retrieval"]
-        assert result.metadata["retrieval"]["num_chunks"] > 0
+        # New flow includes retrieval_calls in metadata
+        assert "retrieval_calls" in result.metadata
+        assert result.metadata["retrieval_calls"] >= 2  # User + agent retrieval
 
     def test_turn_updates_scene_from_scene_planner(self, game_loop, game_session, mock_orchestrator):
         """Test that scene is updated from scene planner output."""
@@ -270,16 +271,19 @@ class TestGameLoop:
             reasoning="",
             metadata={
                 "scene_plan": {
-                    "next_scene": "forest",
-                    "responding_npc": "Gandalf"
+                    "next_action": "engage_npc",
+                    "target": "Gandalf",
+                    "reasoning": "Player wants to talk to Gandalf",
+                    "retrieval_quality": 0.9,
+                    "validation_status": "approved"
                 }
             }
         )
 
         game_loop.execute_turn(
             session=game_session,
-            player_command="Go to forest"
+            player_command="Talk to Gandalf"
         )
 
-        assert game_session.state.get("current_scene") == "forest"
+        # In the new flow, NPCs are added to active_npcs when they respond
         assert "Gandalf" in game_session.state.get("active_npcs", [])
