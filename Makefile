@@ -49,7 +49,7 @@ eval:
 	@if [ -f scripts/eval.py ]; then \
 		$(PYTHON) scripts/eval.py; \
 	else \
-		echo "Error: scripts/eval.py not found (Phase 6 not implemented yet)"; \
+		echo "Error: scripts/eval.py not found (Metrics not implemented yet)"; \
 		exit 1; \
 	fi
 

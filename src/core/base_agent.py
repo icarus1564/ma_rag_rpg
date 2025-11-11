@@ -99,8 +99,6 @@ class LLMClient:
                 response = self.client.chat.completions.create(
                     model=self.config.model,
                     messages=messages,
-                    temperature=self.config.temperature,
-                    max_tokens=self.config.max_tokens,
                 )
                 return response.choices[0].message.content
             

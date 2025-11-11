@@ -8,7 +8,9 @@ logs/
 config/
 docs/notes/
 data/indices
+data/vector_db
 data/test_data/indices
+data/test_data/vector_db
 CLAUDE.md
 *.pyc
 *.pkl

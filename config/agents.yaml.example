@@ -4,19 +4,21 @@
 # - ScenePlanner: Plans next scene and determines NPC responses. Prefer an instruct LLM with good planning and orchestration capabilities
 # - NPCManager: Generates NPC dialogue with just-in-time persona extraction. Prefer an LLM with good persona / voice and tone capabilities
 # - RulesReferee: Validates player actions against corpus facts. Prefer an instruct LLM that excels at strict adherence to context / RAG libraries
+####
+# Note: OpenAI's free gpt-5-nano model does not accept either temperature or max_tokens. The client for openAI has been
+# modified to remove those elements from the request.  If they are needed in the future, update the client to filter on
+# model name
+####
 agents:
   Narrator:
     name: Narrator # used to identify who is speaking; narrator can have a custom name
     llm:
-      provider: ollama # One of openai, gemini, ollama
-      model: nameOfModel
-      temperature: 0.7
-      max_tokens: 1000
-      api_key: null # Will be loaded from environment if not provided
-      base_url: http://localhost:11434/v1 # For Ollama or custom OpenAI-compatible endpoints
+      provider: openai # One of openai, gemini, ollama
+      model: gpt-5-nano
+      api_key: <your-key-here>
+      base_url: https://api.openai.com/v1
     persona_template: null # name of persona template to use
     retrieval_query_template: null # name of RAG query template to use
-    retrieval_top_k: 5
     enabled: true
 
   ScenePlanner:

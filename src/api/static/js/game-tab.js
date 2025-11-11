@@ -6,6 +6,7 @@
 let currentSessionId = null;
 let isProcessingTurn = false;
 let progressPollInterval = null;
+let isGameOver = false; // Track if current game has ended
 
 /**
  * Initialize Game Tab
@@ -14,6 +15,40 @@ function initGameTab() {
     renderGameTab();
     loadSavedSession();
     setupGameEventListeners();
+}
+
+/**
+ * Update UI state when game ends or restarts
+ * @param {boolean} isOver - Whether the game is over
+ */
+function updateGameOverState(isOver) {
+    isGameOver = isOver;
+
+    if (isOver) {
+        // Hide the Submit Turn section entirely
+        document.getElementById('playerInputSection').style.display = 'none';
+
+        // Highlight the "New Game" button
+        const newGameBtn = document.getElementById('newGameBtn');
+        newGameBtn.classList.add('btn-success', 'pulse-animation');
+        newGameBtn.classList.remove('btn-primary');
+
+        // Add "Start new game?" message
+        const sessionInfo = document.getElementById('sessionInfo');
+        sessionInfo.innerHTML = `
+            <span class="text-success">
+                <i class="fas fa-redo"></i> Start new game?
+            </span>
+        `;
+    } else {
+        // Show Submit Turn section
+        document.getElementById('playerInputSection').style.display = 'block';
+
+        // Reset "New Game" button styling
+        const newGameBtn = document.getElementById('newGameBtn');
+        newGameBtn.classList.add('btn-primary');
+        newGameBtn.classList.remove('btn-success', 'pulse-animation');
+    }
 }
 
 /**
@@ -239,8 +274,14 @@ async function startNewGame() {
         // Save to localStorage
         localStorageSet('currentSessionId', currentSessionId);
 
+        // Clear any previous game-over state
+        localStorageRemove(`gameOver_${currentSessionId}`);
+
         // Hide initial context section
         document.getElementById('initialContextSection').style.display = 'none';
+
+        // Reset game-over state
+        updateGameOverState(false);
 
         // Update UI
         updateSessionInfo();
@@ -290,6 +331,12 @@ async function loadSession(sessionId) {
 
         showToast('Session loaded successfully!', 'success');
         updateCharCount();
+
+        // Check if this session ended (game over)
+        const isOver = localStorageGet(`gameOver_${sessionId}`);
+        if (isOver) {
+            updateGameOverState(true);
+        }
 
     } catch (error) {
         showToast(`Failed to load session: ${error.message}`, 'error');
@@ -494,10 +541,11 @@ function displayTurnResults(turnResult) {
             content: 'Player Loses!',
         });
 
-        // Display disqualification heading with reason
-        let disqualificationContent = 'You\'re disqualified!';
+        // Display disqualification with content and reason
+        let disqualificationContent = 'You\'re disqualified!\n\n';
+        disqualificationContent += 'Disqualifying Response: ' + turnResult.player_command + '\n';
         if (turnResult.user_validation && turnResult.user_validation.reason) {
-            disqualificationContent += '\n\nReason: ' + turnResult.user_validation.reason;
+            disqualificationContent += 'Reason: ' + turnResult.user_validation.reason;
         }
 
         appendToGameOutput({
@@ -506,6 +554,7 @@ function displayTurnResults(turnResult) {
             validation: turnResult.user_validation,
         });
 
+        /*
         // Display the disqualification message from narrator (if available)
         if (turnResult.narrator_output && turnResult.narrator_output.content) {
             appendToGameOutput({
@@ -521,6 +570,7 @@ function displayTurnResults(turnResult) {
                 citations: [],
             });
         }
+            */
 
         // Show game over message
         appendToGameOutput({
@@ -531,6 +581,12 @@ function displayTurnResults(turnResult) {
         // Disable input - game is over
         updateInputState(false);
         document.getElementById('submitTurnBtn').disabled = true;
+
+        // Update game-over state in UI
+        updateGameOverState(true);
+
+        // Save game-over state to localStorage
+        localStorageSet(`gameOver_${currentSessionId}`, true);
 
         return; // Don't display other outputs
     } else if (turnResult.player_wins) {
@@ -548,10 +604,24 @@ function displayTurnResults(turnResult) {
             agentName = 'Narrator';
         }
 
-        // Display disqualification heading with reason
-        let disqualificationContent = `${agentName} is disqualified!`;
+        // Display disqualification with content and reason
+        let disqualificationContent = `${agentName} is disqualified!\n\n`;
+        let foundResponse = false;
+        if (turnResult.metadata?.original_agent_response) {
+            disqualificationContent += 'metadata.Original Agent Response: ' + turnResult.metadata.original_agent_response + '\n\n';
+            foundResponse = true;
+        } 
+        if (turnResult.narrator_output?.content) {
+            disqualificationContent += 'Narrator Response: ' + turnResult.narrator_output.content + '\n\n';  
+            foundResponse = true;         
+        }
+        if (foundResponse == false) {
+            disqualificationContent += 'No response found in turnResult';
+
+        }
+
         if (turnResult.agent_validation && turnResult.agent_validation.reason) {
-            disqualificationContent += '\n\nReason: ' + turnResult.agent_validation.reason;
+            disqualificationContent += 'Reason: ' + turnResult.agent_validation.reason;
         }
 
         appendToGameOutput({
@@ -559,15 +629,6 @@ function displayTurnResults(turnResult) {
             content: disqualificationContent,
             validation: turnResult.agent_validation,
         });
-
-        // Display the original invalid response if available in metadata
-        if (turnResult.metadata?.original_agent_response) {
-            appendToGameOutput({
-                type: 'invalid_response',
-                content: 'Agent attempted to say: "' + turnResult.metadata.original_agent_response + '"',
-                reason: turnResult.agent_validation?.reason || 'Invalid response',
-            });
-        }
 
         // Display the correction message from narrator (if available)
         if (turnResult.narrator_output && turnResult.narrator_output.content) {
@@ -594,6 +655,12 @@ function displayTurnResults(turnResult) {
         // Disable input - game is over
         updateInputState(false);
         document.getElementById('submitTurnBtn').disabled = true;
+
+        // Update game-over state in UI
+        updateGameOverState(true);
+
+        // Save game-over state to localStorage
+        localStorageSet(`gameOver_${currentSessionId}`, true);
 
         return; // Don't display other outputs
     }
@@ -734,8 +801,7 @@ function appendToGameOutput(data) {
         }
         const html = `
             <div class="alert alert-warning">
-                <i class="fas fa-ban"></i> <strong>${escapeHtml(data.content)}</strong>
-                ${data.validation ? `<p class="mb-0 mt-2">${escapeHtml(data.validation.reason)}</p>` : ''}
+                <i class="fas fa-ban"></i> <div style="white-space: pre-line;">${escapeHtml(data.content)}</div>
                 ${suggestionsHtml}
             </div>
         `;
@@ -743,8 +809,7 @@ function appendToGameOutput(data) {
     } else if (data.type === 'player_wins') {
         const html = `
             <div class="alert alert-success">
-                <i class="fas fa-trophy"></i> <strong>${escapeHtml(data.content)}</strong>
-                ${data.validation ? `<p class="mb-0 mt-2">Reason: ${escapeHtml(data.validation.reason)}</p>` : ''}
+                <i class="fas fa-trophy"></i> <div style="white-space: pre-line;">${escapeHtml(data.content)}</div>
             </div>
         `;
         gameOutput.insertAdjacentHTML('beforeend', html);
